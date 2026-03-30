@@ -19,4 +19,5 @@ export interface Project {
 export type CreateProjectInput = {
   name: string;
   data: string;
+  cover_asset_id?: number | null;
 };
