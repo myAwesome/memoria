@@ -7,6 +7,7 @@ export default defineConfig({
     proxy: {
       '/project': 'http://localhost:8787',
       '/asset': 'http://localhost:8787',
+      '/uploads': 'http://localhost:8787',
     },
   },
 })
