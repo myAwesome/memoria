@@ -13,6 +13,13 @@ import (
 	"memoria/routes"
 )
 
+func uploadDir() string {
+	if d := os.Getenv("UPLOAD_DIR"); d != "" {
+		return d
+	}
+	return "./uploads"
+}
+
 func main() {
 	dbHost := os.Getenv("DB_HOST")
 	dbName := os.Getenv("DB_NAME")
@@ -25,6 +32,11 @@ func main() {
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("connect db: %v", err)
+	}
+
+	uDir := uploadDir()
+	if err := os.MkdirAll(uDir, 0755); err != nil {
+		log.Fatalf("create upload dir: %v", err)
 	}
 
 	r := gin.Default()
@@ -40,7 +52,7 @@ func main() {
 		c.Next()
 	})
 
-	routes.RegisterRoutes(r, db)
+	routes.RegisterRoutes(r, db, uDir)
 	if err := r.Run(":" + os.Getenv("APP_PORT")); err != nil {
 		log.Fatalf("server: %v", err)
 	}
