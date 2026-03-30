@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Project } from '../types/project';
 import { BOOK_SIZES, type BookSizeId } from '../types/project';
-import { listProject, createProject, deleteProject } from '../api/project';
+import { listProject, createProject, updateProject, deleteProject } from '../api/project';
 
 export default function ProjectPage() {
   const navigate = useNavigate();
@@ -15,6 +15,10 @@ export default function ProjectPage() {
   const [newName, setNewName] = useState('');
   const [newSize, setNewSize] = useState<BookSizeId>('a4-portrait');
   const [creating, setCreating] = useState(false);
+
+  const [editItem, setEditItem] = useState<Project | null>(null);
+  const [editName, setEditName] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => { load(1); }, []);
 
@@ -42,6 +46,23 @@ export default function ProjectPage() {
     finally { setCreating(false); }
   }
 
+  function openEdit(item: Project) {
+    setEditItem(item);
+    setEditName(item.name ?? '');
+  }
+
+  async function handleSaveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editItem || !editName.trim()) return;
+    setSaving(true);
+    try {
+      await updateProject(editItem.id, { name: editName.trim() });
+      setEditItem(null);
+      load(page);
+    } catch (e) { console.error(e); }
+    finally { setSaving(false); }
+  }
+
   async function handleDelete(id: number, name: string) {
     if (!confirm(`Видалити "${name}"?`)) return;
     try { await deleteProject(id); load(page); } catch (e) { console.error(e); }
@@ -64,6 +85,32 @@ export default function ProjectPage() {
         <h1>Фотокниги</h1>
         <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Нова фотокнига</button>
       </div>
+
+      {editItem && (
+        <div className="modal-overlay" onClick={() => setEditItem(null)}>
+          <div className="modal-card" onClick={e => e.stopPropagation()}>
+            <h2 className="modal-title">Редагувати фотокнигу</h2>
+            <form onSubmit={handleSaveEdit}>
+              <div className="form-group">
+                <label className="form-label">Назва</label>
+                <input
+                  className="form-input"
+                  type="text"
+                  autoFocus
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                />
+              </div>
+              <div className="modal-actions">
+                <button type="submit" className="btn btn-primary" disabled={saving || !editName.trim()}>
+                  {saving ? 'Збереження…' : 'Зберегти'}
+                </button>
+                <button type="button" className="btn" onClick={() => setEditItem(null)}>Скасувати</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {showModal && (
         <div className="modal-overlay" onClick={closeModal}>
@@ -120,7 +167,7 @@ export default function ProjectPage() {
         <div className="book-grid">
           {items.map(item => (
             <div key={item.id} className="book-card">
-              <div className="book-cover">
+              <div className="book-cover book-cover--clickable" onClick={() => navigate(`/project/${item.id}/edit`)}>
                 {item.cover_asset_id
                   ? <CoverImage assetId={item.cover_asset_id} name={item.name} />
                   : <BookCoverPlaceholder name={item.name} id={item.id} />
@@ -132,6 +179,7 @@ export default function ProjectPage() {
               </div>
               <div className="book-actions">
                 <button className="btn btn-sm btn-primary" onClick={() => navigate(`/project/${item.id}/edit`)}>Відкрити</button>
+                <button className="btn btn-sm" onClick={() => openEdit(item)}>Редагувати</button>
                 <button
                   className="btn btn-sm btn-danger"
                   onClick={() => handleDelete(item.id, item.name ?? String(item.id))}
