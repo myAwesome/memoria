@@ -1022,6 +1022,48 @@ body {
   background: rgba(220, 38, 38, 0.85);
 }
 
+/* ── Slot selection ── */
+.canvas-slot.selected .canvas-slot-inner {
+  border: 2px solid var(--accent);
+  border-style: solid;
+}
+
+.canvas-slot.selected .slot-clear-btn {
+  opacity: 1;
+}
+
+/* ── Slot image pan/crop ── */
+.slot-image {
+  cursor: grab;
+  transform-origin: center;
+  user-select: none;
+}
+
+.slot-image:active {
+  cursor: grabbing;
+}
+
+/* ── Panel hint when slot selected ── */
+.slot-assign-hint {
+  font-size: 11px;
+  color: var(--accent);
+  background: var(--sort-hover-bg);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 5px 8px;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+/* ── Asset thumb clickable when slot selected ── */
+.asset-thumb.assignable {
+  cursor: pointer;
+}
+
+.asset-thumb.assignable:hover img {
+  opacity: 0.85;
+}
+
 /* ── Right Panel ── */
 .editor-right-panel {
   width: 280px;

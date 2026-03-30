@@ -22,6 +22,7 @@ type Action =
   | { type: 'SET_LAYOUT'; spreadId: string; layoutId: LayoutId }
   | { type: 'ASSIGN_ASSET'; spreadId: string; slotId: string; assetId: number; assetPath: string }
   | { type: 'CLEAR_SLOT'; spreadId: string; slotId: string }
+  | { type: 'UPDATE_SLOT_TRANSFORM'; spreadId: string; slotId: string; offsetX: number; offsetY: number; scale: number }
   | { type: 'UNDO' }
   | { type: 'REDO' };
 
@@ -85,6 +86,19 @@ function applyAction(present: ProjectData, action: Action): ProjectData {
       return { ...present, spreads };
     }
 
+    case 'UPDATE_SLOT_TRANSFORM': {
+      const spreads = present.spreads.map(s => {
+        if (s.id !== action.spreadId) return s;
+        const slots = s.slots.map(sl =>
+          sl.id === action.slotId
+            ? { ...sl, offsetX: action.offsetX, offsetY: action.offsetY, scale: action.scale }
+            : sl
+        );
+        return { ...s, slots };
+      });
+      return { ...present, spreads };
+    }
+
     default:
       return present;
   }
@@ -131,6 +145,8 @@ export function useEditorStore(initial: ProjectData) {
     assignAsset:  useCallback((spreadId: string, slotId: string, assetId: number, assetPath: string) =>
       dispatch({ type: 'ASSIGN_ASSET', spreadId, slotId, assetId, assetPath }), []),
     clearSlot:    useCallback((spreadId: string, slotId: string) => dispatch({ type: 'CLEAR_SLOT', spreadId, slotId }), []),
+    updateSlotTransform: useCallback((spreadId: string, slotId: string, offsetX: number, offsetY: number, scale: number) =>
+      dispatch({ type: 'UPDATE_SLOT_TRANSFORM', spreadId, slotId, offsetX, offsetY, scale }), []),
     undo: useCallback(() => dispatch({ type: 'UNDO' }), []),
     redo: useCallback(() => dispatch({ type: 'REDO' }), []),
   };
