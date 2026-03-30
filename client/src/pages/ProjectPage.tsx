@@ -1,158 +1,189 @@
 import { useState, useEffect } from 'react';
-import type { Project, CreateProjectInput } from '../types/project';
-import { listProject, createProject, updateProject, deleteProject, batchDeleteProject } from '../api/project';
-
-const EMPTY_FORM: CreateProjectInput = {
-  name: '',
-  data: '',
-};
+import type { Project } from '../types/project';
+import { BOOK_SIZES, type BookSizeId } from '../types/project';
+import { listProject, createProject, deleteProject } from '../api/project';
 
 export default function ProjectPage() {
   const [items, setItems] = useState<Project[]>([]);
-  const [editing, setEditing] = useState<Project | null>(null);
-  const [form, setForm] = useState<CreateProjectInput>(EMPTY_FORM);
-  const [showForm, setShowForm] = useState(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const limit = 20;
-  const [sortBy, setSortBy] = useState('id');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [q, setQ] = useState('');
-  const [filters, setFilters] = useState<Record<string, string>>({});
+
+  const [showModal, setShowModal] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newSize, setNewSize] = useState<BookSizeId>('a4-portrait');
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => { load(1); }, []);
 
-  async function load(p: number, sb = sortBy, sd = sortDir, f = filters, search = q) {
+  async function load(p: number) {
     try {
-      const params: Record<string, string> = { ...f };
-      if (search) params['q'] = search;
-      const res = await listProject(p, limit, sb, sd, params);
+      const res = await listProject(p, limit, 'id', 'desc');
       setItems(res.data);
       setTotal(res.total);
       setPage(p);
-      setSelectedIds(new Set());
     } catch (e) { console.error(e); }
   }
 
-  function handleSort(col: string) {
-    const newDir = col === sortBy ? (sortDir === 'asc' ? 'desc' : 'asc') : 'desc';
-    setSortBy(col);
-    setSortDir(newDir);
-    load(1, col, newDir);
-  }
-
-  function handleFilterChange(key: string, value: string) {
-    const newFilters = value
-      ? { ...filters, [key]: value }
-      : Object.fromEntries(Object.entries(filters).filter(([k]) => k !== key));
-    setFilters(newFilters);
-    load(1, sortBy, sortDir, newFilters, q);
-  }
-
-  function handleSearch(newQ: string) {
-    setQ(newQ);
-    load(1, sortBy, sortDir, filters, newQ);
-  }
-
-  function openCreate() {
-    setEditing(null); setForm(EMPTY_FORM); setShowForm(true);
-  }
-
-  function openEdit(item: Project) {
-    setEditing(item);
-    setForm({
-      name: item.name ?? '',
-      data: item.data ?? '',
-    });
-    setShowForm(true);
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
+    if (!newName.trim()) return;
+    setCreating(true);
     try {
-      if (editing) await updateProject(editing.id, form);
-      else await createProject(form);
-      setShowForm(false); load(page);
+      const data = JSON.stringify({ spreads: [], size: newSize });
+      await createProject({ name: newName.trim(), data });
+      setShowModal(false);
+      setNewName('');
+      setNewSize('a4-portrait');
+      load(1);
     } catch (e) { console.error(e); }
+    finally { setCreating(false); }
   }
 
-  async function handleDelete(id: number) {
-    if (!confirm('Delete?')) return;
+  async function handleDelete(id: number, name: string) {
+    if (!confirm(`Видалити "${name}"?`)) return;
     try { await deleteProject(id); load(page); } catch (e) { console.error(e); }
   }
 
-  async function handleBatchDelete() {
-    if (selectedIds.size === 0) return;
-    if (!confirm(`Delete ${selectedIds.size} item(s)?`)) return;
-    try { await batchDeleteProject(Array.from(selectedIds)); load(page); } catch (e) { console.error(e); }
+  function closeModal() {
+    setShowModal(false);
+    setNewName('');
+    setNewSize('a4-portrait');
+  }
+
+  function formatDate(iso?: string) {
+    if (!iso) return '';
+    return new Date(iso).toLocaleDateString('uk-UA', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
   return (
     <div>
       <div className="page-header">
-        <h1>project</h1>
-        <div className="header-actions">
-          {selectedIds.size > 0 && (
-            <button className="btn btn-danger" onClick={handleBatchDelete}>Delete {selectedIds.size} selected</button>
-          )}
-          <button className="btn btn-primary" onClick={openCreate}>+ New</button>
-        </div>
+        <h1>Фотокниги</h1>
+        <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Нова фотокнига</button>
       </div>
 
-      <div className="filter-bar">
-        <input className="form-input" type="search" placeholder="Search..." value={q} onChange={e => handleSearch(e.target.value)} />
-      </div>
-
-      {showForm && (
-        <div className="form-card">
-          <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label className="form-label">name</label>
-              <input className="form-input" type="text" value={form.name as string} onChange={e => setForm({...form, name: e.target.value})} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">data</label>
-              <input className="form-input" type="text" value={form.data as string} onChange={e => setForm({...form, data: e.target.value})} />
-            </div>
-            <div className="form-actions">
-              <button type="submit" className="btn btn-primary">{editing ? 'Save' : 'Create'}</button>
-              <button type="button" className="btn" onClick={() => setShowForm(false)}>Cancel</button>
-            </div>
-          </form>
+      {showModal && (
+        <div className="modal-overlay" onClick={closeModal}>
+          <div className="modal-card" onClick={e => e.stopPropagation()}>
+            <h2 className="modal-title">Нова фотокнига</h2>
+            <form onSubmit={handleCreate}>
+              <div className="form-group">
+                <label className="form-label">Назва</label>
+                <input
+                  className="form-input"
+                  type="text"
+                  autoFocus
+                  placeholder="Введіть назву..."
+                  value={newName}
+                  onChange={e => setNewName(e.target.value)}
+                />
+              </div>
+              <div className="form-group" style={{ marginTop: 20 }}>
+                <label className="form-label">Розмір</label>
+                <div className="size-grid">
+                  {BOOK_SIZES.map(s => (
+                    <label key={s.id} className={`size-option${newSize === s.id ? ' selected' : ''}`}>
+                      <input
+                        type="radio"
+                        name="size"
+                        value={s.id}
+                        checked={newSize === s.id}
+                        onChange={() => setNewSize(s.id)}
+                      />
+                      <div className="size-thumb" style={{ aspectRatio: `${s.width}/${s.height}` }} />
+                      <span className="size-name">{s.label}</span>
+                      <span className="size-dim">{s.width}×{s.height}мм</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className="modal-actions">
+                <button type="submit" className="btn btn-primary" disabled={creating || !newName.trim()}>
+                  {creating ? 'Створення…' : 'Створити'}
+                </button>
+                <button type="button" className="btn" onClick={closeModal}>Скасувати</button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
-      <table className="data-table">
-        <thead><tr>
-          <th><input type="checkbox" checked={items.length > 0 && items.every(i => selectedIds.has(i.id))} onChange={e => { if (e.target.checked) setSelectedIds(new Set(items.map(i => i.id))); else setSelectedIds(new Set()); }} /></th>
-          <th className={`sortable${sortBy === 'id' ? ' sorted' : ''}`} onClick={() => handleSort('id')}>id {sortBy === 'id' && (sortDir === 'asc' ? '▲' : '▼')}</th>
-          <th className={`sortable${sortBy === 'name' ? ' sorted' : ''}`} onClick={() => handleSort('name')}>name {sortBy === 'name' && (sortDir === 'asc' ? '▲' : '▼')}</th>
-          <th className={`sortable${sortBy === 'data' ? ' sorted' : ''}`} onClick={() => handleSort('data')}>data {sortBy === 'data' && (sortDir === 'asc' ? '▲' : '▼')}</th>
-          <th></th>
-        </tr></thead>
-        <tbody>
+      {items.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-icon">📖</div>
+          <p>Немає фотокниг. Створіть першу!</p>
+        </div>
+      ) : (
+        <div className="book-grid">
           {items.map(item => (
-            <tr key={item.id}>
-              <td><input type="checkbox" checked={selectedIds.has(item.id)} onChange={e => { const s = new Set(selectedIds); if (e.target.checked) s.add(item.id); else s.delete(item.id); setSelectedIds(s); }} /></td>
-              <td>{item.id}</td>
-              <td>{item.name}</td>
-              <td>{item.data}</td>
-              <td>
-                <div className="row-actions">
-                  <button className="btn btn-sm" onClick={() => openEdit(item)}>Edit</button>
-                  <button className="btn btn-sm btn-danger" onClick={() => handleDelete(item.id)}>Del</button>
-                </div>
-              </td>
-            </tr>
+            <div key={item.id} className="book-card">
+              <div className="book-cover">
+                {item.cover_asset_id
+                  ? <CoverImage assetId={item.cover_asset_id} name={item.name} />
+                  : <BookCoverPlaceholder name={item.name} id={item.id} />
+                }
+              </div>
+              <div className="book-info">
+                <div className="book-name" title={item.name}>{item.name}</div>
+                <div className="book-date">{formatDate(item.created_at)}</div>
+              </div>
+              <div className="book-actions">
+                <button className="btn btn-sm btn-primary">Відкрити</button>
+                <button
+                  className="btn btn-sm btn-danger"
+                  onClick={() => handleDelete(item.id, item.name ?? String(item.id))}
+                >
+                  Видалити
+                </button>
+              </div>
+            </div>
           ))}
-        </tbody>
-      </table>
-      <div className="pagination">
-        <button className="btn" onClick={() => load(page - 1)} disabled={page <= 1}>Prev</button>
-        <span>{page} / {Math.ceil(total / limit) || 1} ({total} total)</span>
-        <button className="btn" onClick={() => load(page + 1)} disabled={page * limit >= total}>Next</button>
-      </div>
+        </div>
+      )}
+
+      {total > limit && (
+        <div className="pagination">
+          <button className="btn" onClick={() => load(page - 1)} disabled={page <= 1}>← Назад</button>
+          <span>{page} / {Math.ceil(total / limit)} ({total})</span>
+          <button className="btn" onClick={() => load(page + 1)} disabled={page * limit >= total}>Далі →</button>
+        </div>
+      )}
     </div>
   );
+}
+
+const COVER_COLORS = [
+  '#4f6ef7', '#e05c7e', '#43b89c', '#f0a040', '#7c5cbf',
+  '#3a9ad9', '#d45f2c', '#2eaa6e', '#c44bb5', '#6b7280',
+];
+
+function BookCoverPlaceholder({ name, id }: { name?: string; id: number }) {
+  const color = COVER_COLORS[id % COVER_COLORS.length];
+  const letter = (name ?? '?')[0].toUpperCase();
+  return (
+    <div className="book-cover-placeholder" style={{ background: color }}>
+      <span className="book-cover-letter">{letter}</span>
+    </div>
+  );
+}
+
+function CoverImage({ assetId, name }: { assetId: number; name?: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    fetch(`/asset/${assetId}`)
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then((a: { path?: string }) => { if (a.path) setUrl(a.path); else setFailed(true); })
+      .catch(() => setFailed(true));
+  }, [assetId]);
+
+  if (failed || (!url && !assetId)) {
+    return <BookCoverPlaceholder name={name} id={assetId} />;
+  }
+  if (!url) {
+    return <div className="book-cover-placeholder book-cover-loading" />;
+  }
+  return <img src={url} alt={name} className="book-cover-img" />;
 }

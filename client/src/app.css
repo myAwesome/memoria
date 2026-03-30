@@ -436,6 +436,227 @@ body {
   :root:not([data-theme="light"]):not([data-theme="dark"]) .badge--inactive  { background: #2a1a1a; color: #f06060; }
 }
 
+/* ── Book grid ──────────────────────────────────────────────────────── */
+.book-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 24px;
+}
+
+.book-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.18s, transform 0.18s;
+}
+
+.book-card:hover {
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.10);
+  transform: translateY(-2px);
+}
+
+.book-cover {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  background: var(--bg-table-head);
+  flex-shrink: 0;
+}
+
+.book-cover-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.book-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+}
+
+.book-cover-loading {
+  background: var(--bg-table-head);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+.book-cover-letter {
+  font-size: 52px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  user-select: none;
+}
+
+.book-info {
+  padding: 12px 14px 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.book-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-heading);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.book-date {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.book-actions {
+  padding: 10px 14px 14px;
+  display: flex;
+  gap: 8px;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px;
+  color: var(--text-secondary);
+  font-size: 15px;
+  gap: 12px;
+}
+
+.empty-icon {
+  font-size: 48px;
+  line-height: 1;
+}
+
+/* ── Modal ───────────────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 24px;
+  animation: fade-in 0.15s ease;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.modal-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px;
+  width: 100%;
+  max-width: 520px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22);
+  animation: slide-up 0.18s ease;
+}
+
+@keyframes slide-up {
+  from { transform: translateY(16px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.modal-title {
+  margin: 0 0 24px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+/* ── Size selector ───────────────────────────────────────────────────── */
+.size-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.size-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 10px 6px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-input);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.size-option input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.size-option:hover {
+  border-color: var(--accent);
+  background: var(--sort-hover-bg);
+}
+
+.size-option.selected {
+  border-color: var(--accent);
+  background: var(--sort-hover-bg);
+}
+
+.size-thumb {
+  width: 32px;
+  background: var(--accent);
+  border-radius: 2px;
+  opacity: 0.75;
+  min-height: 20px;
+  max-height: 44px;
+}
+
+.size-option.selected .size-thumb {
+  opacity: 1;
+}
+
+.size-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: center;
+  line-height: 1.2;
+}
+
+.size-dim {
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
 /* ── Auth pages ─────────────────────────────────────────────────────── */
 .btn-logout {
   padding: 6px 14px;
