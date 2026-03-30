@@ -18,6 +18,9 @@ export interface Slot {
   id: string;
   assetId?: number;
   assetPath?: string;
+  offsetX?: number;  // px offset for pan, default 0
+  offsetY?: number;
+  scale?: number;    // zoom factor, default 1
 }
 
 export interface Spread {

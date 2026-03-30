@@ -72,6 +72,7 @@ function EditorInner({ projectId, projectName, initialData, onBack }: EditorInne
   const [currentSpreadIdx, setCurrentSpreadIdx] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
+  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const isFirstRender = useRef(true);
 
   const safeIdx = store.data.spreads.length > 0
@@ -149,18 +150,29 @@ function EditorInner({ projectId, projectName, initialData, onBack }: EditorInne
           spread={currentSpread}
           bookSize={bookSize}
           zoom={zoom}
+          selectedSlotId={selectedSlotId}
+          onSelectSlot={setSelectedSlotId}
           onAssignAsset={(slotId, assetId, assetPath) =>
             currentSpread && store.assignAsset(currentSpread.id, slotId, assetId, assetPath)
           }
           onClearSlot={(slotId) =>
             currentSpread && store.clearSlot(currentSpread.id, slotId)
           }
+          onUpdateTransform={(slotId, offsetX, offsetY, scale) =>
+            currentSpread && store.updateSlotTransform(currentSpread.id, slotId, offsetX, offsetY, scale)
+          }
         />
         <RightPanel
           spread={currentSpread}
+          selectedSlotId={selectedSlotId}
           onSetLayout={(layoutId) =>
             currentSpread && store.setLayout(currentSpread.id, layoutId)
           }
+          onAssignToSelected={(assetId, assetPath) => {
+            if (selectedSlotId && currentSpread) {
+              store.assignAsset(currentSpread.id, selectedSlotId, assetId, assetPath);
+            }
+          }}
         />
       </div>
     </div>
@@ -247,11 +259,14 @@ interface CanvasAreaProps {
   spread: Spread | null;
   bookSize: BookSize;
   zoom: number;
+  selectedSlotId: string | null;
+  onSelectSlot: (slotId: string | null) => void;
   onAssignAsset: (slotId: string, assetId: number, assetPath: string) => void;
   onClearSlot: (slotId: string) => void;
+  onUpdateTransform: (slotId: string, offsetX: number, offsetY: number, scale: number) => void;
 }
 
-function CanvasArea({ spread, bookSize, zoom, onAssignAsset, onClearSlot }: CanvasAreaProps) {
+function CanvasArea({ spread, bookSize, zoom, selectedSlotId, onSelectSlot, onAssignAsset, onClearSlot, onUpdateTransform }: CanvasAreaProps) {
   if (!spread) {
     return (
       <div className="canvas-area">
@@ -266,7 +281,7 @@ function CanvasArea({ spread, bookSize, zoom, onAssignAsset, onClearSlot }: Canv
   const layout = getLayout(spread.layoutId);
 
   return (
-    <div className="canvas-area">
+    <div className="canvas-area" onClick={() => onSelectSlot(null)}>
       <div className="canvas-scroll-inner">
         <div
           className="canvas-page"
@@ -282,8 +297,11 @@ function CanvasArea({ spread, bookSize, zoom, onAssignAsset, onClearSlot }: Canv
                 key={sd.id}
                 def={sd}
                 slot={slot}
+                isSelected={selectedSlotId === sd.id}
                 onAssign={(assetId, assetPath) => onAssignAsset(sd.id, assetId, assetPath)}
                 onClear={() => onClearSlot(sd.id)}
+                onSelect={() => onSelectSlot(sd.id)}
+                onUpdateTransform={(offsetX, offsetY, scale) => onUpdateTransform(sd.id, offsetX, offsetY, scale)}
               />
             );
           })}
@@ -296,17 +314,78 @@ function CanvasArea({ spread, bookSize, zoom, onAssignAsset, onClearSlot }: Canv
 interface CanvasSlotProps {
   def: SlotDef;
   slot: Slot;
+  isSelected: boolean;
   onAssign: (assetId: number, assetPath: string) => void;
   onClear: () => void;
+  onSelect: () => void;
+  onUpdateTransform: (offsetX: number, offsetY: number, scale: number) => void;
 }
 
-function CanvasSlot({ def, slot, onAssign, onClear }: CanvasSlotProps) {
+function CanvasSlot({ def, slot, isSelected, onAssign, onClear, onSelect, onUpdateTransform }: CanvasSlotProps) {
   const [isDragOver, setIsDragOver] = useState(false);
+  // Live pan state during drag (not yet committed to store)
+  const [liveOffset, setLiveOffset] = useState<{ x: number; y: number } | null>(null);
+  const panRef = useRef<{ startMx: number; startMy: number; startOx: number; startOy: number } | null>(null);
+
+  const currentOffsetX = liveOffset?.x ?? (slot.offsetX ?? 0);
+  const currentOffsetY = liveOffset?.y ?? (slot.offsetY ?? 0);
+  const currentScale = slot.scale ?? 1;
+
+  // Cleanup pan listeners on unmount
+  useEffect(() => {
+    return () => {
+      window.removeEventListener('mousemove', handlePanMove);
+      window.removeEventListener('mouseup', handlePanEnd);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function handlePanStart(e: React.MouseEvent) {
+    if (!slot.assetPath) return;
+    e.preventDefault();
+    e.stopPropagation();
+    panRef.current = {
+      startMx: e.clientX,
+      startMy: e.clientY,
+      startOx: slot.offsetX ?? 0,
+      startOy: slot.offsetY ?? 0,
+    };
+    window.addEventListener('mousemove', handlePanMove);
+    window.addEventListener('mouseup', handlePanEnd);
+  }
+
+  function handlePanMove(e: MouseEvent) {
+    if (!panRef.current) return;
+    const { startMx, startMy, startOx, startOy } = panRef.current;
+    setLiveOffset({ x: startOx + (e.clientX - startMx), y: startOy + (e.clientY - startMy) });
+  }
+
+  function handlePanEnd(e: MouseEvent) {
+    if (!panRef.current) return;
+    const { startMx, startMy, startOx, startOy } = panRef.current;
+    const finalX = startOx + (e.clientX - startMx);
+    const finalY = startOy + (e.clientY - startMy);
+    panRef.current = null;
+    setLiveOffset(null);
+    window.removeEventListener('mousemove', handlePanMove);
+    window.removeEventListener('mouseup', handlePanEnd);
+    onUpdateTransform(finalX, finalY, currentScale);
+  }
+
+  function handleWheel(e: React.WheelEvent) {
+    if (!slot.assetPath) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    const newScale = Math.max(0.5, Math.min(4, currentScale + delta));
+    onUpdateTransform(currentOffsetX, currentOffsetY, newScale);
+  }
 
   return (
     <div
-      className={`canvas-slot${isDragOver ? ' drag-over' : ''}`}
+      className={`canvas-slot${isDragOver ? ' drag-over' : ''}${isSelected ? ' selected' : ''}`}
       style={{ left: def.left, top: def.top, width: def.width, height: def.height }}
+      onClick={e => { e.stopPropagation(); onSelect(); }}
       onDragOver={e => { e.preventDefault(); e.stopPropagation(); setIsDragOver(true); }}
       onDragLeave={() => setIsDragOver(false)}
       onDrop={e => {
@@ -317,12 +396,20 @@ function CanvasSlot({ def, slot, onAssign, onClear }: CanvasSlotProps) {
         const assetPath = e.dataTransfer.getData('assetPath');
         if (assetId && assetPath) onAssign(assetId, assetPath);
       }}
+      onWheel={handleWheel}
     >
       <div className="canvas-slot-inner">
         {slot.assetPath ? (
           <>
-            <img src={slot.assetPath} alt="" className="slot-image" draggable={false} />
-            <button className="slot-clear-btn" onClick={onClear} title="Очистити слот">×</button>
+            <img
+              src={slot.assetPath}
+              alt=""
+              className="slot-image"
+              draggable={false}
+              style={{ transform: `translate(${currentOffsetX}px, ${currentOffsetY}px) scale(${currentScale})` }}
+              onMouseDown={handlePanStart}
+            />
+            <button className="slot-clear-btn" onClick={e => { e.stopPropagation(); onClear(); }} title="Очистити слот">×</button>
           </>
         ) : (
           <div className="slot-empty">
@@ -338,10 +425,12 @@ function CanvasSlot({ def, slot, onAssign, onClear }: CanvasSlotProps) {
 
 interface RightPanelProps {
   spread: Spread | null;
+  selectedSlotId: string | null;
   onSetLayout: (layoutId: LayoutId) => void;
+  onAssignToSelected: (assetId: number, assetPath: string) => void;
 }
 
-function RightPanel({ spread, onSetLayout }: RightPanelProps) {
+function RightPanel({ spread, selectedSlotId, onSetLayout, onAssignToSelected }: RightPanelProps) {
   const [tab, setTab] = useState<'photos' | 'layout'>('photos');
 
   return (
@@ -356,7 +445,7 @@ function RightPanel({ spread, onSetLayout }: RightPanelProps) {
       </div>
       <div className="right-panel-content">
         {tab === 'photos' ? (
-          <PhotosTab />
+          <PhotosTab selectedSlotId={selectedSlotId} onAssignToSelected={onAssignToSelected} />
         ) : (
           <LayoutTab spread={spread} onSetLayout={onSetLayout} />
         )}
@@ -367,7 +456,12 @@ function RightPanel({ spread, onSetLayout }: RightPanelProps) {
 
 // ─── Photos Tab ───────────────────────────────────────────────────────────
 
-function PhotosTab() {
+interface PhotosTabProps {
+  selectedSlotId: string | null;
+  onAssignToSelected: (assetId: number, assetPath: string) => void;
+}
+
+function PhotosTab({ selectedSlotId, onAssignToSelected }: PhotosTabProps) {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [search, setSearch] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -454,16 +548,24 @@ function PhotosTab() {
           onChange={e => setSearch(e.target.value)}
         />
       </div>
+      {selectedSlotId && (
+        <div className="slot-assign-hint">Клікніть фото, щоб вставити у слот</div>
+      )}
       <div className="asset-thumb-grid">
         {assets.map(asset => (
           <div
             key={asset.id}
-            className="asset-thumb"
+            className={`asset-thumb${selectedSlotId ? ' assignable' : ''}`}
             draggable
             onDragStart={e => {
               e.dataTransfer.setData('assetId', String(asset.id));
               e.dataTransfer.setData('assetPath', asset.path ?? '');
               e.dataTransfer.effectAllowed = 'copy';
+            }}
+            onClick={() => {
+              if (selectedSlotId && asset.path) {
+                onAssignToSelected(asset.id, asset.path);
+              }
             }}
             title={asset.original_name ?? asset.path}
           >
