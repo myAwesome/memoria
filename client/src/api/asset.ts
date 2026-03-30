@@ -1,6 +1,6 @@
 import type { Asset, CreateAssetInput } from '../types/asset';
 
-const BASE = '/asset';
+const BASE = '/api/asset';
 
 export interface PaginatedAsset { data: Asset[]; total: number; page: number; limit: number; }
 

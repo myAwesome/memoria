@@ -1,6 +1,6 @@
 import type { Project, CreateProjectInput } from '../types/project';
 
-const BASE = '/project';
+const BASE = '/api/project';
 
 export interface PaginatedProject { data: Project[]; total: number; page: number; limit: number; }
 

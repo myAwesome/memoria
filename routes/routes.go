@@ -15,23 +15,22 @@ import (
 )
 
 // RegisterRoutes wires all CRUD routes onto r.
-func RegisterRoutes(r gin.IRouter, db *gorm.DB, uploadDir string) {
-	r.GET("/project", listProject(db))
-	r.GET("/project/:id", getProject(db))
-	r.POST("/project", createProject(db))
-	r.PUT("/project/:id", updateProject(db))
-	r.DELETE("/project/batch", batchDeleteProject(db))
-	r.DELETE("/project/:id", deleteProject(db))
-	r.GET("/asset", listAsset(db))
-	r.GET("/asset/:id", getAsset(db))
-	r.POST("/asset", createAsset(db))
-	r.POST("/asset/upload", uploadAsset(db, uploadDir))
-	r.PUT("/asset/:id", updateAsset(db))
-	r.DELETE("/asset/batch", batchDeleteAsset(db))
-	r.DELETE("/asset/:id", deleteAsset(db))
-	if rg, ok := r.(*gin.Engine); ok {
-		rg.Static("/uploads", uploadDir)
-	}
+func RegisterRoutes(r *gin.Engine, db *gorm.DB, uploadDir string) {
+	api := r.Group("/api")
+	api.GET("/project", listProject(db))
+	api.GET("/project/:id", getProject(db))
+	api.POST("/project", createProject(db))
+	api.PUT("/project/:id", updateProject(db))
+	api.DELETE("/project/batch", batchDeleteProject(db))
+	api.DELETE("/project/:id", deleteProject(db))
+	api.GET("/asset", listAsset(db))
+	api.GET("/asset/:id", getAsset(db))
+	api.POST("/asset", createAsset(db))
+	api.POST("/asset/upload", uploadAsset(db, uploadDir))
+	api.PUT("/asset/:id", updateAsset(db))
+	api.DELETE("/asset/batch", batchDeleteAsset(db))
+	api.DELETE("/asset/:id", deleteAsset(db))
+	r.Static("/uploads", uploadDir)
 }
 
 func listProject(db *gorm.DB) gin.HandlerFunc {
