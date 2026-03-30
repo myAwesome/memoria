@@ -1,32 +1,24 @@
 import { useState, useEffect } from 'react';
-import type { Asset, CreateAssetInput } from '../types/asset';
-import { listAsset, createAsset, updateAsset, deleteAsset, batchDeleteAsset } from '../api/asset';
-
-const EMPTY_FORM: CreateAssetInput = {
-  path: '',
-};
+import type { Asset } from '../types/asset';
+import { listAsset, deleteAsset, batchDeleteAsset } from '../api/asset';
 
 export default function AssetPage() {
   const [items, setItems] = useState<Asset[]>([]);
-  const [editing, setEditing] = useState<Asset | null>(null);
-  const [form, setForm] = useState<CreateAssetInput>(EMPTY_FORM);
-  const [showForm, setShowForm] = useState(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const limit = 20;
-  const [sortBy, setSortBy] = useState('id');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const limit = 40;
+  const [sortBy] = useState('id');
+  const [sortDir] = useState<'asc' | 'desc'>('desc');
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [q, setQ] = useState('');
-  const [filters, setFilters] = useState<Record<string, string>>({});
 
   useEffect(() => { load(1); }, []);
 
-  async function load(p: number, sb = sortBy, sd = sortDir, f = filters, search = q) {
+  async function load(p: number, search = q) {
     try {
-      const params: Record<string, string> = { ...f };
+      const params: Record<string, string> = {};
       if (search) params['q'] = search;
-      const res = await listAsset(p, limit, sb, sd, params);
+      const res = await listAsset(p, limit, sortBy, sortDir, params);
       setItems(res.data);
       setTotal(res.total);
       setPage(p);
@@ -34,117 +26,88 @@ export default function AssetPage() {
     } catch (e) { console.error(e); }
   }
 
-  function handleSort(col: string) {
-    const newDir = col === sortBy ? (sortDir === 'asc' ? 'desc' : 'asc') : 'desc';
-    setSortBy(col);
-    setSortDir(newDir);
-    load(1, col, newDir);
-  }
-
-  function handleFilterChange(key: string, value: string) {
-    const newFilters = value
-      ? { ...filters, [key]: value }
-      : Object.fromEntries(Object.entries(filters).filter(([k]) => k !== key));
-    setFilters(newFilters);
-    load(1, sortBy, sortDir, newFilters, q);
-  }
-
   function handleSearch(newQ: string) {
     setQ(newQ);
-    load(1, sortBy, sortDir, filters, newQ);
+    load(1, newQ);
   }
 
-  function openCreate() {
-    setEditing(null); setForm(EMPTY_FORM); setShowForm(true);
-  }
-
-  function openEdit(item: Asset) {
-    setEditing(item);
-    setForm({
-      path: item.path ?? '',
-    });
-    setShowForm(true);
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    try {
-      if (editing) await updateAsset(editing.id, form);
-      else await createAsset(form);
-      setShowForm(false); load(page);
-    } catch (e) { console.error(e); }
+  function toggleSelect(id: number) {
+    const s = new Set(selectedIds);
+    if (s.has(id)) s.delete(id); else s.add(id);
+    setSelectedIds(s);
   }
 
   async function handleDelete(id: number) {
-    if (!confirm('Delete?')) return;
+    if (!confirm('Видалити фото?')) return;
     try { await deleteAsset(id); load(page); } catch (e) { console.error(e); }
   }
 
   async function handleBatchDelete() {
     if (selectedIds.size === 0) return;
-    if (!confirm(`Delete ${selectedIds.size} item(s)?`)) return;
+    if (!confirm(`Видалити ${selectedIds.size} фото?`)) return;
     try { await batchDeleteAsset(Array.from(selectedIds)); load(page); } catch (e) { console.error(e); }
   }
 
   return (
     <div>
       <div className="page-header">
-        <h1>asset</h1>
+        <h1>Асети</h1>
         <div className="header-actions">
           {selectedIds.size > 0 && (
-            <button className="btn btn-danger" onClick={handleBatchDelete}>Delete {selectedIds.size} selected</button>
+            <button className="btn btn-danger" onClick={handleBatchDelete}>
+              Видалити {selectedIds.size}
+            </button>
           )}
-          <button className="btn btn-primary" onClick={openCreate}>+ New</button>
         </div>
       </div>
 
       <div className="filter-bar">
-        <input className="form-input" type="search" placeholder="Search..." value={q} onChange={e => handleSearch(e.target.value)} />
+        <input
+          className="form-input"
+          type="search"
+          placeholder="Пошук..."
+          value={q}
+          onChange={e => handleSearch(e.target.value)}
+        />
       </div>
 
-      {showForm && (
-        <div className="form-card">
-          <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label className="form-label">path</label>
-              <input className="form-input" type="text" value={form.path as string} onChange={e => setForm({...form, path: e.target.value})} />
+      {items.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-icon">🖼️</div>
+          <p>Немає асетів.</p>
+        </div>
+      ) : (
+        <div className="asset-page-grid">
+          {items.map(item => (
+            <div
+              key={item.id}
+              className={`asset-page-item${selectedIds.has(item.id) ? ' selected' : ''}`}
+              onClick={() => toggleSelect(item.id)}
+            >
+              <div className="asset-page-thumb">
+                <img src={item.path} alt={item.original_name ?? item.filename} loading="lazy" />
+                <button
+                  className="asset-page-del"
+                  onClick={e => { e.stopPropagation(); handleDelete(item.id); }}
+                  title="Видалити"
+                >×</button>
+                {selectedIds.has(item.id) && <div className="asset-page-check">✓</div>}
+              </div>
+              <div className="asset-page-name" title={item.original_name ?? item.filename}>
+                {item.original_name ?? item.filename}
+              </div>
             </div>
-            <div className="form-actions">
-              <button type="submit" className="btn btn-primary">{editing ? 'Save' : 'Create'}</button>
-              <button type="button" className="btn" onClick={() => setShowForm(false)}>Cancel</button>
-            </div>
-          </form>
+          ))}
         </div>
       )}
 
-      <table className="data-table">
-        <thead><tr>
-          <th><input type="checkbox" checked={items.length > 0 && items.every(i => selectedIds.has(i.id))} onChange={e => { if (e.target.checked) setSelectedIds(new Set(items.map(i => i.id))); else setSelectedIds(new Set()); }} /></th>
-          <th className={`sortable${sortBy === 'id' ? ' sorted' : ''}`} onClick={() => handleSort('id')}>id {sortBy === 'id' && (sortDir === 'asc' ? '▲' : '▼')}</th>
-          <th className={`sortable${sortBy === 'path' ? ' sorted' : ''}`} onClick={() => handleSort('path')}>path {sortBy === 'path' && (sortDir === 'asc' ? '▲' : '▼')}</th>
-          <th></th>
-        </tr></thead>
-        <tbody>
-          {items.map(item => (
-            <tr key={item.id}>
-              <td><input type="checkbox" checked={selectedIds.has(item.id)} onChange={e => { const s = new Set(selectedIds); if (e.target.checked) s.add(item.id); else s.delete(item.id); setSelectedIds(s); }} /></td>
-              <td>{item.id}</td>
-              <td>{item.path}</td>
-              <td>
-                <div className="row-actions">
-                  <button className="btn btn-sm" onClick={() => openEdit(item)}>Edit</button>
-                  <button className="btn btn-sm btn-danger" onClick={() => handleDelete(item.id)}>Del</button>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <div className="pagination">
-        <button className="btn" onClick={() => load(page - 1)} disabled={page <= 1}>Prev</button>
-        <span>{page} / {Math.ceil(total / limit) || 1} ({total} total)</span>
-        <button className="btn" onClick={() => load(page + 1)} disabled={page * limit >= total}>Next</button>
-      </div>
+      {total > limit && (
+        <div className="pagination">
+          <button className="btn" onClick={() => load(page - 1)} disabled={page <= 1}>← Назад</button>
+          <span>{page} / {Math.ceil(total / limit)} ({total})</span>
+          <button className="btn" onClick={() => load(page + 1)} disabled={page * limit >= total}>Далі →</button>
+        </div>
+      )}
     </div>
   );
 }
