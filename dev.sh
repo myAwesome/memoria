@@ -21,9 +21,20 @@ echo " ready"
 
 # ── 2. Migrations ──────────────────────────────────────────────────────────────
 echo "▸ Applying migrations..."
+docker compose exec -T mysql mysql -uroot -p"$DB_PASSWORD" "$DB_NAME" \
+  -e "CREATE TABLE IF NOT EXISTS schema_migrations (name VARCHAR(255) PRIMARY KEY, applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP);" 2>/dev/null
 for f in migrations/*.up.sql; do
-  echo "  applying $f..."
-  docker compose exec -T mysql mysql -uroot -p"$DB_PASSWORD" "$DB_NAME" < "$f"
+  name="$(basename "$f")"
+  already=$(docker compose exec -T mysql mysql -uroot -p"$DB_PASSWORD" "$DB_NAME" \
+    -sNe "SELECT COUNT(*) FROM schema_migrations WHERE name='$name';" 2>/dev/null)
+  if [ "${already:-0}" -eq 0 ]; then
+    echo "  applying $f..."
+    docker compose exec -T mysql mysql -uroot -p"$DB_PASSWORD" "$DB_NAME" < "$f"
+    docker compose exec -T mysql mysql -uroot -p"$DB_PASSWORD" "$DB_NAME" \
+      -e "INSERT INTO schema_migrations (name) VALUES ('$name');" 2>/dev/null
+  else
+    echo "  skipping $f (already applied)"
+  fi
 done
 echo "  migrations applied"
 
