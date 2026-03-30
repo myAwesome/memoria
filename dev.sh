@@ -21,7 +21,10 @@ echo " ready"
 
 # ── 2. Migrations ──────────────────────────────────────────────────────────────
 echo "▸ Applying migrations..."
-docker compose exec -T mysql mysql -uroot -p"$DB_PASSWORD" "$DB_NAME" < migrations/001_initial.up.sql
+for f in migrations/*.up.sql; do
+  echo "  applying $f..."
+  docker compose exec -T mysql mysql -uroot -p"$DB_PASSWORD" "$DB_NAME" < "$f"
+done
 echo "  migrations applied"
 
 # ── 3. Server ──────────────────────────────────────────────────────────────────
