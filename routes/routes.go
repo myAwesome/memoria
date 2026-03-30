@@ -1,9 +1,13 @@
 package routes
 
 import (
+	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -11,7 +15,7 @@ import (
 )
 
 // RegisterRoutes wires all CRUD routes onto r.
-func RegisterRoutes(r gin.IRouter, db *gorm.DB) {
+func RegisterRoutes(r gin.IRouter, db *gorm.DB, uploadDir string) {
 	r.GET("/project", listProject(db))
 	r.GET("/project/:id", getProject(db))
 	r.POST("/project", createProject(db))
@@ -21,9 +25,13 @@ func RegisterRoutes(r gin.IRouter, db *gorm.DB) {
 	r.GET("/asset", listAsset(db))
 	r.GET("/asset/:id", getAsset(db))
 	r.POST("/asset", createAsset(db))
+	r.POST("/asset/upload", uploadAsset(db, uploadDir))
 	r.PUT("/asset/:id", updateAsset(db))
 	r.DELETE("/asset/batch", batchDeleteAsset(db))
 	r.DELETE("/asset/:id", deleteAsset(db))
+	if rg, ok := r.(*gin.Engine); ok {
+		rg.Static("/uploads", uploadDir)
+	}
 }
 
 func listProject(db *gorm.DB) gin.HandlerFunc {
@@ -39,7 +47,7 @@ func listProject(db *gorm.DB) gin.HandlerFunc {
 		offset := (page - 1) * limit
 		sortBy := c.DefaultQuery("sort_by", "id")
 		sortDir := c.DefaultQuery("sort_dir", "desc")
-		allowedProject := map[string]bool{ "id": true, "name": true, "data": true,  }
+		allowedProject := map[string]bool{"id": true, "name": true, "data": true, "cover_asset_id": true, "created_at": true, "updated_at": true}
 		if !allowedProject[sortBy] {
 			sortBy = "id"
 		}
@@ -56,6 +64,9 @@ func listProject(db *gorm.DB) gin.HandlerFunc {
 		}
 		if v := c.Query("data"); v != "" {
 			query = query.Where("data = ?", v)
+		}
+		if v := c.Query("cover_asset_id"); v != "" {
+			query = query.Where("cover_asset_id = ?", v)
 		}
 		var total int64
 		query.Count(&total)
@@ -172,7 +183,7 @@ func listAsset(db *gorm.DB) gin.HandlerFunc {
 		offset := (page - 1) * limit
 		sortBy := c.DefaultQuery("sort_by", "id")
 		sortDir := c.DefaultQuery("sort_dir", "desc")
-		allowedAsset := map[string]bool{ "id": true, "path": true,  }
+		allowedAsset := map[string]bool{"id": true, "path": true, "filename": true, "original_name": true, "size": true, "mime_type": true, "created_at": true}
 		if !allowedAsset[sortBy] {
 			sortBy = "id"
 		}
@@ -182,10 +193,13 @@ func listAsset(db *gorm.DB) gin.HandlerFunc {
 		query := db.Model(&models.Asset{})
 		if q := c.Query("q"); q != "" {
 			like := "%" + strings.ReplaceAll(q, "%", "\\%") + "%"
-			query = query.Where("path LIKE ?", like)
+			query = query.Where("original_name LIKE ? OR filename LIKE ? OR path LIKE ?", like, like, like)
 		}
 		if v := c.Query("path"); v != "" {
 			query = query.Where("path = ?", v)
+		}
+		if v := c.Query("mime_type"); v != "" {
+			query = query.Where("mime_type = ?", v)
 		}
 		var total int64
 		query.Count(&total)
@@ -225,6 +239,46 @@ func createAsset(db *gorm.DB) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+		c.JSON(http.StatusCreated, row)
+	}
+}
+
+func uploadAsset(db *gorm.DB, uploadDir string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		file, err := c.FormFile("file")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "file required"})
+			return
+		}
+
+		ext := filepath.Ext(file.Filename)
+		filename := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
+		dst := filepath.Join(uploadDir, filename)
+
+		if err := c.SaveUploadedFile(file, dst); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		mimeType := file.Header.Get("Content-Type")
+		if mimeType == "" {
+			mimeType = "application/octet-stream"
+		}
+
+		row := models.Asset{
+			Path:         "/uploads/" + filename,
+			Filename:     filename,
+			OriginalName: file.Filename,
+			Size:         file.Size,
+			MimeType:     mimeType,
+		}
+
+		if err := db.Create(&row).Error; err != nil {
+			os.Remove(dst)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
 		c.JSON(http.StatusCreated, row)
 	}
 }
@@ -288,4 +342,3 @@ func batchDeleteAsset(db *gorm.DB) gin.HandlerFunc {
 		c.Status(http.StatusNoContent)
 	}
 }
-
