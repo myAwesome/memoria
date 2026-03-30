@@ -6,12 +6,16 @@ function makeId(): string {
   return Math.random().toString(36).slice(2, 9);
 }
 
-export function makeSpread(layoutId: LayoutId = '1col'): Spread {
-  const layout = LAYOUTS.find(l => l.id === layoutId) ?? LAYOUTS[0];
+function getSide(slotId: string): 'left' | 'right' {
+  return slotId.startsWith('r:') ? 'right' : 'left';
+}
+
+export function makeSpread(): Spread {
+  const layout = LAYOUTS[0]; // '1col'
   return {
     id: makeId(),
-    layoutId,
-    slots: layout.slotDefs.map(sd => ({ id: sd.id })),
+    left:  { layoutId: '1col', slots: layout.slotDefs.map(sd => ({ id: `l:${sd.id}` })) },
+    right: { layoutId: '1col', slots: layout.slotDefs.map(sd => ({ id: `r:${sd.id}` })) },
   };
 }
 
@@ -19,7 +23,7 @@ type Action =
   | { type: 'ADD_SPREAD' }
   | { type: 'DELETE_SPREAD'; idx: number }
   | { type: 'REORDER_SPREADS'; from: number; to: number }
-  | { type: 'SET_LAYOUT'; spreadId: string; layoutId: LayoutId }
+  | { type: 'SET_LAYOUT'; spreadId: string; side: 'left' | 'right'; layoutId: LayoutId }
   | { type: 'ASSIGN_ASSET'; spreadId: string; slotId: string; assetId: number; assetPath: string }
   | { type: 'CLEAR_SLOT'; spreadId: string; slotId: string }
   | { type: 'UPDATE_SLOT_TRANSFORM'; spreadId: string; slotId: string; offsetX: number; offsetY: number; scale: number }
@@ -51,50 +55,59 @@ function applyAction(present: ProjectData, action: Action): ProjectData {
 
     case 'SET_LAYOUT': {
       const layout = LAYOUTS.find(l => l.id === action.layoutId) ?? LAYOUTS[0];
+      const prefix = action.side === 'left' ? 'l:' : 'r:';
       const spreads = present.spreads.map(s => {
         if (s.id !== action.spreadId) return s;
+        const page = s[action.side];
         const newSlots = layout.slotDefs.map(sd => {
-          const existing = s.slots.find(sl => sl.id === sd.id);
-          return existing ?? { id: sd.id };
+          const slotId = `${prefix}${sd.id}`;
+          const existing = page.slots.find(sl => sl.id === slotId);
+          return existing ?? { id: slotId };
         });
-        return { ...s, layoutId: action.layoutId, slots: newSlots };
+        return { ...s, [action.side]: { layoutId: action.layoutId, slots: newSlots } };
       });
       return { ...present, spreads };
     }
 
     case 'ASSIGN_ASSET': {
+      const side = getSide(action.slotId);
       const spreads = present.spreads.map(s => {
         if (s.id !== action.spreadId) return s;
-        const slots = s.slots.map(sl =>
+        const page = s[side];
+        const slots = page.slots.map(sl =>
           sl.id === action.slotId
             ? { ...sl, assetId: action.assetId, assetPath: action.assetPath }
             : sl
         );
-        return { ...s, slots };
+        return { ...s, [side]: { ...page, slots } };
       });
       return { ...present, spreads };
     }
 
     case 'CLEAR_SLOT': {
+      const side = getSide(action.slotId);
       const spreads = present.spreads.map(s => {
         if (s.id !== action.spreadId) return s;
-        const slots = s.slots.map(sl =>
+        const page = s[side];
+        const slots = page.slots.map(sl =>
           sl.id === action.slotId ? { id: sl.id } : sl
         );
-        return { ...s, slots };
+        return { ...s, [side]: { ...page, slots } };
       });
       return { ...present, spreads };
     }
 
     case 'UPDATE_SLOT_TRANSFORM': {
+      const side = getSide(action.slotId);
       const spreads = present.spreads.map(s => {
         if (s.id !== action.spreadId) return s;
-        const slots = s.slots.map(sl =>
+        const page = s[side];
+        const slots = page.slots.map(sl =>
           sl.id === action.slotId
             ? { ...sl, offsetX: action.offsetX, offsetY: action.offsetY, scale: action.scale }
             : sl
         );
-        return { ...s, slots };
+        return { ...s, [side]: { ...page, slots } };
       });
       return { ...present, spreads };
     }
@@ -141,10 +154,12 @@ export function useEditorStore(initial: ProjectData) {
     addSpread:    useCallback(() => dispatch({ type: 'ADD_SPREAD' }), []),
     deleteSpread: useCallback((idx: number) => dispatch({ type: 'DELETE_SPREAD', idx }), []),
     reorderSpreads: useCallback((from: number, to: number) => dispatch({ type: 'REORDER_SPREADS', from, to }), []),
-    setLayout:    useCallback((spreadId: string, layoutId: LayoutId) => dispatch({ type: 'SET_LAYOUT', spreadId, layoutId }), []),
+    setLayout:    useCallback((spreadId: string, side: 'left' | 'right', layoutId: LayoutId) =>
+      dispatch({ type: 'SET_LAYOUT', spreadId, side, layoutId }), []),
     assignAsset:  useCallback((spreadId: string, slotId: string, assetId: number, assetPath: string) =>
       dispatch({ type: 'ASSIGN_ASSET', spreadId, slotId, assetId, assetPath }), []),
-    clearSlot:    useCallback((spreadId: string, slotId: string) => dispatch({ type: 'CLEAR_SLOT', spreadId, slotId }), []),
+    clearSlot:    useCallback((spreadId: string, slotId: string) =>
+      dispatch({ type: 'CLEAR_SLOT', spreadId, slotId }), []),
     updateSlotTransform: useCallback((spreadId: string, slotId: string, offsetX: number, offsetY: number, scale: number) =>
       dispatch({ type: 'UPDATE_SLOT_TRANSFORM', spreadId, slotId, offsetX, offsetY, scale }), []),
     undo: useCallback(() => dispatch({ type: 'UNDO' }), []),

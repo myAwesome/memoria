@@ -10,6 +10,30 @@ import { LAYOUTS, getLayout } from '../editor/layouts';
 
 const DEFAULT_DATA: ProjectData = { spreads: [], size: 'a4-portrait' };
 
+// Migrate old spread format ({ id, layoutId, slots }) to new ({ id, left, right })
+function migrateData(raw: unknown): ProjectData {
+  const data = raw as any;
+  if (!data?.spreads) return DEFAULT_DATA;
+  return {
+    ...data,
+    spreads: (data.spreads as any[]).map(s => {
+      if (s.left && s.right) return s; // already new format
+      // Old format: { id, layoutId, slots }
+      const oldLayoutId: LayoutId = s.layoutId ?? '1col';
+      const oldSlots: Slot[] = (s.slots ?? []).map((sl: any) => ({
+        ...sl,
+        id: `l:${sl.id}`,
+      }));
+      const defaultLayout = getLayout('1col');
+      return {
+        id: s.id,
+        left:  { layoutId: oldLayoutId, slots: oldSlots },
+        right: { layoutId: '1col', slots: defaultLayout.slotDefs.map(sd => ({ id: `r:${sd.id}` })) },
+      };
+    }),
+  };
+}
+
 // ─── EditorPage (loader) ──────────────────────────────────────────────────
 
 export default function EditorPage() {
@@ -27,7 +51,7 @@ export default function EditorPage() {
       .then(async p => {
         setProjectName(p.name ?? '');
         let parsed: ProjectData = DEFAULT_DATA;
-        try { if (p.data) parsed = JSON.parse(p.data); } catch { /* use default */ }
+        try { if (p.data) parsed = migrateData(JSON.parse(p.data)); } catch { /* use default */ }
         setInitialData(parsed);
         if (p.cover_asset_id) {
           try {
@@ -195,8 +219,8 @@ function EditorInner({ projectId, projectName, initialData, initialCoverAssetPat
         <RightPanel
           spread={currentSpread}
           selectedSlotId={selectedSlotId}
-          onSetLayout={(layoutId) =>
-            currentSpread && store.setLayout(currentSpread.id, layoutId)
+          onSetLayout={(side, layoutId) =>
+            currentSpread && store.setLayout(currentSpread.id, side, layoutId)
           }
           onAssignToSelected={(assetId, assetPath) => {
             if (selectedSlotId && currentSpread) {
@@ -295,16 +319,37 @@ function LeftPanel({ spreads, currentIdx, bookSize, onSelect, onAdd, onReorder, 
 }
 
 function SpreadMiniature({ spread, aspectRatio }: { spread: Spread; aspectRatio: number }) {
-  const layout = getLayout(spread.layoutId);
+  const leftLayout = getLayout(spread.left.layoutId);
+  const rightLayout = getLayout(spread.right.layoutId);
   return (
     <div className="spread-mini" style={{ aspectRatio: String(aspectRatio * 2) }}>
-      {layout.slotDefs.map(sd => {
-        const slot = spread.slots.find(s => s.id === sd.id);
+      {/* Left page slots – positions are halved to fit left side of spread */}
+      {leftLayout.slotDefs.map(sd => {
+        const slotId = `l:${sd.id}`;
+        const slot = spread.left.slots.find(s => s.id === slotId);
+        const leftPct  = parseFloat(sd.left)   / 2;
+        const widthPct = parseFloat(sd.width)  / 2;
         return (
           <div
-            key={sd.id}
+            key={slotId}
             className="spread-mini-slot"
-            style={{ left: sd.left, top: sd.top, width: sd.width, height: sd.height }}
+            style={{ left: `${leftPct}%`, top: sd.top, width: `${widthPct}%`, height: sd.height }}
+          >
+            {slot?.assetPath && <img src={slot.assetPath} alt="" draggable={false} />}
+          </div>
+        );
+      })}
+      {/* Right page slots – offset by 50% */}
+      {rightLayout.slotDefs.map(sd => {
+        const slotId = `r:${sd.id}`;
+        const slot = spread.right.slots.find(s => s.id === slotId);
+        const leftPct  = 50 + parseFloat(sd.left)  / 2;
+        const widthPct = parseFloat(sd.width) / 2;
+        return (
+          <div
+            key={slotId}
+            className="spread-mini-slot"
+            style={{ left: `${leftPct}%`, top: sd.top, width: `${widthPct}%`, height: sd.height }}
           >
             {slot?.assetPath && <img src={slot.assetPath} alt="" draggable={false} />}
           </div>
@@ -340,7 +385,8 @@ function CanvasArea({ spread, bookSize, zoom, selectedSlotId, onSelectSlot, onAs
     );
   }
 
-  const layout = getLayout(spread.layoutId);
+  const leftLayout  = getLayout(spread.left.layoutId);
+  const rightLayout = getLayout(spread.right.layoutId);
 
   return (
     <div className="canvas-area" onClick={() => onSelectSlot(null)}>
@@ -352,22 +398,47 @@ function CanvasArea({ spread, bookSize, zoom, selectedSlotId, onSelectSlot, onAs
             aspectRatio: `${bookSize.width * 2} / ${bookSize.height}`,
           }}
         >
+          {/* Left page */}
+          <div className="canvas-page-half canvas-page-left">
+            {leftLayout.slotDefs.map(sd => {
+              const slotId = `l:${sd.id}`;
+              const slot = spread.left.slots.find(s => s.id === slotId) ?? { id: slotId };
+              return (
+                <CanvasSlot
+                  key={slotId}
+                  def={sd}
+                  slot={slot}
+                  isSelected={selectedSlotId === slotId}
+                  onAssign={(assetId, assetPath) => onAssignAsset(slotId, assetId, assetPath)}
+                  onClear={() => onClearSlot(slotId)}
+                  onSelect={() => onSelectSlot(slotId)}
+                  onUpdateTransform={(offsetX, offsetY, scale) => onUpdateTransform(slotId, offsetX, offsetY, scale)}
+                />
+              );
+            })}
+          </div>
+
           <div className="canvas-spread-divider" />
-          {layout.slotDefs.map(sd => {
-            const slot = spread.slots.find(s => s.id === sd.id) ?? { id: sd.id };
-            return (
-              <CanvasSlot
-                key={sd.id}
-                def={sd}
-                slot={slot}
-                isSelected={selectedSlotId === sd.id}
-                onAssign={(assetId, assetPath) => onAssignAsset(sd.id, assetId, assetPath)}
-                onClear={() => onClearSlot(sd.id)}
-                onSelect={() => onSelectSlot(sd.id)}
-                onUpdateTransform={(offsetX, offsetY, scale) => onUpdateTransform(sd.id, offsetX, offsetY, scale)}
-              />
-            );
-          })}
+
+          {/* Right page */}
+          <div className="canvas-page-half canvas-page-right">
+            {rightLayout.slotDefs.map(sd => {
+              const slotId = `r:${sd.id}`;
+              const slot = spread.right.slots.find(s => s.id === slotId) ?? { id: slotId };
+              return (
+                <CanvasSlot
+                  key={slotId}
+                  def={sd}
+                  slot={slot}
+                  isSelected={selectedSlotId === slotId}
+                  onAssign={(assetId, assetPath) => onAssignAsset(slotId, assetId, assetPath)}
+                  onClear={() => onClearSlot(slotId)}
+                  onSelect={() => onSelectSlot(slotId)}
+                  onUpdateTransform={(offsetX, offsetY, scale) => onUpdateTransform(slotId, offsetX, offsetY, scale)}
+                />
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
@@ -469,7 +540,9 @@ function CanvasSlot({ def, slot, isSelected, onAssign, onClear, onSelect, onUpda
               alt=""
               className="slot-image"
               draggable={false}
-              style={{ transform: `translate(${currentOffsetX}px, ${currentOffsetY}px) scale(${currentScale})` }}
+              style={{
+                transform: `translate(calc(-50% + ${currentOffsetX}px), calc(-50% + ${currentOffsetY}px)) scale(${currentScale})`,
+              }}
               onMouseDown={handlePanStart}
             />
             <button className="slot-clear-btn" onClick={e => { e.stopPropagation(); onClear(); }} title="Очистити слот">×</button>
@@ -489,7 +562,7 @@ function CanvasSlot({ def, slot, isSelected, onAssign, onClear, onSelect, onUpda
 interface RightPanelProps {
   spread: Spread | null;
   selectedSlotId: string | null;
-  onSetLayout: (layoutId: LayoutId) => void;
+  onSetLayout: (side: 'left' | 'right', layoutId: LayoutId) => void;
   onAssignToSelected: (assetId: number, assetPath: string) => void;
 }
 
@@ -647,19 +720,34 @@ function PhotosTab({ selectedSlotId, onAssignToSelected }: PhotosTabProps) {
 
 interface LayoutTabProps {
   spread: Spread | null;
-  onSetLayout: (layoutId: LayoutId) => void;
+  onSetLayout: (side: 'left' | 'right', layoutId: LayoutId) => void;
 }
 
 function LayoutTab({ spread, onSetLayout }: LayoutTabProps) {
   return (
     <div className="layout-tab">
-      <p className="panel-section-label">Макет сторінки</p>
+      <p className="panel-section-label">Ліва сторінка</p>
       <div className="layout-grid">
         {LAYOUTS.map(layout => (
           <button
             key={layout.id}
-            className={`layout-option${spread?.layoutId === layout.id ? ' active' : ''}`}
-            onClick={() => onSetLayout(layout.id)}
+            className={`layout-option${spread?.left.layoutId === layout.id ? ' active' : ''}`}
+            onClick={() => onSetLayout('left', layout.id)}
+            title={layout.label}
+          >
+            <LayoutPreview slotDefs={layout.slotDefs} />
+            <span>{layout.label}</span>
+          </button>
+        ))}
+      </div>
+
+      <p className="panel-section-label" style={{ marginTop: '16px' }}>Права сторінка</p>
+      <div className="layout-grid">
+        {LAYOUTS.map(layout => (
+          <button
+            key={layout.id}
+            className={`layout-option${spread?.right.layoutId === layout.id ? ' active' : ''}`}
+            onClick={() => onSetLayout('right', layout.id)}
             title={layout.label}
           >
             <LayoutPreview slotDefs={layout.slotDefs} />

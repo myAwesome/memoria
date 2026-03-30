@@ -925,6 +925,16 @@ body {
   flex-shrink: 0;
 }
 
+/* Each half of the spread represents one page */
+.canvas-page-half {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.canvas-page-left  { left: 0;   right: 50%; }
+.canvas-page-right { left: 50%; right: 0; }
+
 .canvas-empty {
   display: flex;
   flex-direction: column;
@@ -971,9 +981,15 @@ body {
 }
 
 .slot-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  position: absolute;
+  /* Natural size but at least cover the slot in each dimension */
+  min-width: 100%;
+  min-height: 100%;
+  width: auto;
+  height: auto;
+  /* Centering is handled by the translate(-50%,-50%) in the transform */
+  top: 50%;
+  left: 50%;
   display: block;
 }
 
