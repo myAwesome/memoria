@@ -19,15 +19,25 @@ export default function EditorPage() {
   const [loadError, setLoadError] = useState('');
   const [projectName, setProjectName] = useState('');
   const [initialData, setInitialData] = useState<ProjectData | null>(null);
+  const [initialCoverAssetPath, setInitialCoverAssetPath] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
     getProject(Number(id))
-      .then(p => {
+      .then(async p => {
         setProjectName(p.name ?? '');
         let parsed: ProjectData = DEFAULT_DATA;
         try { if (p.data) parsed = JSON.parse(p.data); } catch { /* use default */ }
         setInitialData(parsed);
+        if (p.cover_asset_id) {
+          try {
+            const res = await fetch(`/asset/${p.cover_asset_id}`);
+            if (res.ok) {
+              const a = await res.json();
+              setInitialCoverAssetPath(a.path ?? null);
+            }
+          } catch { /* ignore */ }
+        }
       })
       .catch(() => setLoadError('Не вдалося завантажити проєкт'))
       .finally(() => setLoading(false));
@@ -45,6 +55,7 @@ export default function EditorPage() {
       projectId={Number(id)}
       projectName={projectName}
       initialData={initialData}
+      initialCoverAssetPath={initialCoverAssetPath}
       onBack={() => navigate('/project')}
     />
   );
@@ -56,6 +67,7 @@ interface EditorInnerProps {
   projectId: number;
   projectName: string;
   initialData: ProjectData;
+  initialCoverAssetPath: string | null;
   onBack: () => void;
 }
 
@@ -67,12 +79,13 @@ const SAVE_LABELS: Record<SaveStatus, string> = {
   error:   'Помилка збереження',
 };
 
-function EditorInner({ projectId, projectName, initialData, onBack }: EditorInnerProps) {
+function EditorInner({ projectId, projectName, initialData, initialCoverAssetPath, onBack }: EditorInnerProps) {
   const store = useEditorStore(initialData);
   const [currentSpreadIdx, setCurrentSpreadIdx] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
+  const [coverAssetPath, setCoverAssetPath] = useState<string | null>(initialCoverAssetPath);
   const isFirstRender = useRef(true);
 
   const safeIdx = store.data.spreads.length > 0
@@ -117,6 +130,20 @@ function EditorInner({ projectId, projectName, initialData, onBack }: EditorInne
     setCurrentSpreadIdx(idx => Math.max(0, idx - (idx >= store.data.spreads.length - 1 ? 1 : 0)));
   }
 
+  async function handleSetCover(assetId: number, assetPath: string) {
+    setCoverAssetPath(assetPath);
+    try {
+      await updateProject(projectId, { cover_asset_id: assetId });
+    } catch { /* ignore */ }
+  }
+
+  async function handleClearCover() {
+    setCoverAssetPath(null);
+    try {
+      await updateProject(projectId, { cover_asset_id: null });
+    } catch { /* ignore */ }
+  }
+
   return (
     <div className="editor-layout">
       <div className="editor-toolbar">
@@ -127,8 +154,8 @@ function EditorInner({ projectId, projectName, initialData, onBack }: EditorInne
         <button className="btn btn-sm" onClick={store.undo} disabled={!store.canUndo} title="Відмінити (Ctrl+Z)">↩</button>
         <button className="btn btn-sm" onClick={store.redo} disabled={!store.canRedo} title="Повторити (Ctrl+Y)">↪</button>
         <div className="toolbar-divider" />
-        <button className="btn btn-sm btn-danger" onClick={handleDeleteSpread} disabled={safeIdx < 0} title="Видалити поточну сторінку">
-          ⌫ Сторінку
+        <button className="btn btn-sm btn-danger" onClick={handleDeleteSpread} disabled={safeIdx < 0} title="Видалити поточний розворот">
+          ⌫ Розворот
         </button>
         <div className="toolbar-divider" />
         <button className="btn btn-sm" onClick={() => setZoom(z => Math.max(0.25, +(z - 0.25).toFixed(2)))} title="Зменшити">−</button>
@@ -145,6 +172,9 @@ function EditorInner({ projectId, projectName, initialData, onBack }: EditorInne
           onSelect={setCurrentSpreadIdx}
           onAdd={store.addSpread}
           onReorder={store.reorderSpreads}
+          coverAssetPath={coverAssetPath}
+          onSetCover={handleSetCover}
+          onClearCover={handleClearCover}
         />
         <CanvasArea
           spread={currentSpread}
@@ -190,17 +220,48 @@ interface LeftPanelProps {
   onSelect: (idx: number) => void;
   onAdd: () => void;
   onReorder: (from: number, to: number) => void;
+  coverAssetPath: string | null;
+  onSetCover: (assetId: number, assetPath: string) => void;
+  onClearCover: () => void;
 }
 
-function LeftPanel({ spreads, currentIdx, bookSize, onSelect, onAdd, onReorder }: LeftPanelProps) {
+function LeftPanel({ spreads, currentIdx, bookSize, onSelect, onAdd, onReorder, coverAssetPath, onSetCover, onClearCover }: LeftPanelProps) {
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState<number | null>(null);
+  const [coverDragOver, setCoverDragOver] = useState(false);
+
+  function handleCoverDrop(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setCoverDragOver(false);
+    const assetId = Number(e.dataTransfer.getData('assetId'));
+    const assetPath = e.dataTransfer.getData('assetPath');
+    if (assetId && assetPath) onSetCover(assetId, assetPath);
+  }
 
   return (
     <div className="editor-left-panel">
+      <div className="cover-section">
+        <div className="cover-section-label">Обкладинка</div>
+        <div
+          className={`cover-slot${coverDragOver ? ' drag-over' : ''}`}
+          onDragOver={e => { e.preventDefault(); e.stopPropagation(); setCoverDragOver(true); }}
+          onDragLeave={() => setCoverDragOver(false)}
+          onDrop={handleCoverDrop}
+        >
+          {coverAssetPath ? (
+            <>
+              <img src={coverAssetPath} alt="Обкладинка" />
+              <button className="cover-clear-btn" onClick={e => { e.stopPropagation(); onClearCover(); }} title="Видалити обкладинку">×</button>
+            </>
+          ) : (
+            <span className="cover-slot-empty-icon">+</span>
+          )}
+        </div>
+      </div>
       <div className="left-panel-header">
-        <span className="panel-title">Сторінки</span>
-        <button className="btn btn-sm btn-primary" onClick={onAdd} title="Додати сторінку">+</button>
+        <span className="panel-title">Розвороти</span>
+        <button className="btn btn-sm btn-primary" onClick={onAdd} title="Додати розворот">+</button>
       </div>
       <div className="spread-list">
         {spreads.map((spread, idx) => (
@@ -226,7 +287,7 @@ function LeftPanel({ spreads, currentIdx, bookSize, onSelect, onAdd, onReorder }
           </div>
         ))}
         {spreads.length === 0 && (
-          <div className="spread-list-empty">Немає сторінок.<br />Натисніть + щоб додати.</div>
+          <div className="spread-list-empty">Немає розворотів.<br />Натисніть + щоб додати.</div>
         )}
       </div>
     </div>
@@ -236,7 +297,7 @@ function LeftPanel({ spreads, currentIdx, bookSize, onSelect, onAdd, onReorder }
 function SpreadMiniature({ spread, aspectRatio }: { spread: Spread; aspectRatio: number }) {
   const layout = getLayout(spread.layoutId);
   return (
-    <div className="spread-mini" style={{ aspectRatio: String(aspectRatio) }}>
+    <div className="spread-mini" style={{ aspectRatio: String(aspectRatio * 2) }}>
       {layout.slotDefs.map(sd => {
         const slot = spread.slots.find(s => s.id === sd.id);
         return (
@@ -249,6 +310,7 @@ function SpreadMiniature({ spread, aspectRatio }: { spread: Spread; aspectRatio:
           </div>
         );
       })}
+      <div className="spread-mini-divider" />
     </div>
   );
 }
@@ -272,7 +334,7 @@ function CanvasArea({ spread, bookSize, zoom, selectedSlotId, onSelectSlot, onAs
       <div className="canvas-area">
         <div className="canvas-empty">
           <div className="canvas-empty-icon">📄</div>
-          <p>Немає сторінок.<br />Натисніть + у лівій панелі.</p>
+          <p>Немає розворотів.<br />Натисніть + у лівій панелі.</p>
         </div>
       </div>
     );
@@ -286,10 +348,11 @@ function CanvasArea({ spread, bookSize, zoom, selectedSlotId, onSelectSlot, onAs
         <div
           className="canvas-page"
           style={{
-            width: `${600 * zoom}px`,
-            aspectRatio: `${bookSize.width} / ${bookSize.height}`,
+            width: `${1200 * zoom}px`,
+            aspectRatio: `${bookSize.width * 2} / ${bookSize.height}`,
           }}
         >
+          <div className="canvas-spread-divider" />
           {layout.slotDefs.map(sd => {
             const slot = spread.slots.find(s => s.id === sd.id) ?? { id: sd.id };
             return (
