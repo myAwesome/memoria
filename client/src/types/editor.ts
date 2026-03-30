@@ -23,10 +23,15 @@ export interface Slot {
   scale?: number;    // zoom factor, default 1
 }
 
-export interface Spread {
-  id: string;
+export interface PageData {
   layoutId: LayoutId;
   slots: Slot[];
+}
+
+export interface Spread {
+  id: string;
+  left: PageData;
+  right: PageData;
 }
 
 export interface ProjectData {
