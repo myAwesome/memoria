@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { Project } from '../types/project';
 import { BOOK_SIZES, type BookSizeId } from '../types/project';
 import { listProject, createProject, deleteProject } from '../api/project';
 
 export default function ProjectPage() {
+  const navigate = useNavigate();
   const [items, setItems] = useState<Project[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -129,7 +131,7 @@ export default function ProjectPage() {
                 <div className="book-date">{formatDate(item.created_at)}</div>
               </div>
               <div className="book-actions">
-                <button className="btn btn-sm btn-primary">Відкрити</button>
+                <button className="btn btn-sm btn-primary" onClick={() => navigate(`/project/${item.id}/edit`)}>Відкрити</button>
                 <button
                   className="btn btn-sm btn-danger"
                   onClick={() => handleDelete(item.id, item.name ?? String(item.id))}

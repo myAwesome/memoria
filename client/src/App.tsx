@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, NavLink, useLocation } from 'react-router-dom';
 import ProjectPage from './pages/ProjectPage';
 import AssetPage from './pages/AssetPage';
+import EditorPage from './pages/EditorPage';
 function ThemeToggle() {
   const [dark, setDark] = useState(() => {
     const stored = localStorage.getItem('theme');
@@ -26,21 +27,33 @@ function ThemeToggle() {
   );
 }
 
+function AppShell() {
+  const location = useLocation();
+  const isEditor = location.pathname.startsWith('/project/') && location.pathname.endsWith('/edit');
+
+  return (
+    <>
+      {!isEditor && (
+        <nav className="app-nav">
+          <NavLink to="/project" className={({ isActive }) => isActive ? 'active' : ''}>Project</NavLink>
+          <NavLink to="/asset" className={({ isActive }) => isActive ? 'active' : ''}>Asset</NavLink>
+          <span className="nav-spacer" />
+          <ThemeToggle />
+        </nav>
+      )}
+      <Routes>
+        <Route path="/project/:id/edit" element={<EditorPage />} />
+        <Route path="/project" element={<main className="app-main"><ProjectPage /></main>} />
+        <Route path="/asset" element={<main className="app-main"><AssetPage /></main>} />
+      </Routes>
+    </>
+  );
+}
+
 export default function App() {
   return (
     <BrowserRouter>
-      <nav className="app-nav">
-        <NavLink to="/project" className={({ isActive }) => isActive ? 'active' : ''}>Project</NavLink>
-        <NavLink to="/asset" className={({ isActive }) => isActive ? 'active' : ''}>Asset</NavLink>
-        <span className="nav-spacer" />
-        <ThemeToggle />
-      </nav>
-      <main className="app-main">
-        <Routes>
-          <Route path="/project" element={<ProjectPage />} />
-          <Route path="/asset" element={<AssetPage />} />
-        </Routes>
-      </main>
+      <AppShell />
     </BrowserRouter>
   );
 }
