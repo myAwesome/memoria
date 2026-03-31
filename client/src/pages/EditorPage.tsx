@@ -215,6 +215,9 @@ function EditorInner({ projectId, projectName, initialData, initialCoverAssetPat
           onUpdateTransform={(slotId, offsetX, offsetY, scale) =>
             currentSpread && store.updateSlotTransform(currentSpread.id, slotId, offsetX, offsetY, scale)
           }
+          onUpdateGeometry={(slotId, left, top, width, height) =>
+            currentSpread && store.updateSlotGeometry(currentSpread.id, slotId, left, top, width, height)
+          }
         />
         <RightPanel
           spread={currentSpread}
@@ -327,13 +330,15 @@ function SpreadMiniature({ spread, aspectRatio }: { spread: Spread; aspectRatio:
       {leftLayout.slotDefs.map(sd => {
         const slotId = `l:${sd.id}`;
         const slot = spread.left.slots.find(s => s.id === slotId);
-        const leftPct  = parseFloat(sd.left)   / 2;
-        const widthPct = parseFloat(sd.width)  / 2;
+        const rawLeft   = slot?.customLeft   ?? parseFloat(sd.left);
+        const rawTop    = slot?.customTop    ?? parseFloat(sd.top);
+        const rawWidth  = slot?.customWidth  ?? parseFloat(sd.width);
+        const rawHeight = slot?.customHeight ?? parseFloat(sd.height);
         return (
           <div
             key={slotId}
             className="spread-mini-slot"
-            style={{ left: `${leftPct}%`, top: sd.top, width: `${widthPct}%`, height: sd.height }}
+            style={{ left: `${rawLeft / 2}%`, top: `${rawTop}%`, width: `${rawWidth / 2}%`, height: `${rawHeight}%` }}
           >
             {slot?.assetPath && <img src={slot.assetPath} alt="" draggable={false} />}
           </div>
@@ -343,13 +348,15 @@ function SpreadMiniature({ spread, aspectRatio }: { spread: Spread; aspectRatio:
       {rightLayout.slotDefs.map(sd => {
         const slotId = `r:${sd.id}`;
         const slot = spread.right.slots.find(s => s.id === slotId);
-        const leftPct  = 50 + parseFloat(sd.left)  / 2;
-        const widthPct = parseFloat(sd.width) / 2;
+        const rawLeft   = slot?.customLeft   ?? parseFloat(sd.left);
+        const rawTop    = slot?.customTop    ?? parseFloat(sd.top);
+        const rawWidth  = slot?.customWidth  ?? parseFloat(sd.width);
+        const rawHeight = slot?.customHeight ?? parseFloat(sd.height);
         return (
           <div
             key={slotId}
             className="spread-mini-slot"
-            style={{ left: `${leftPct}%`, top: sd.top, width: `${widthPct}%`, height: sd.height }}
+            style={{ left: `${50 + rawLeft / 2}%`, top: `${rawTop}%`, width: `${rawWidth / 2}%`, height: `${rawHeight}%` }}
           >
             {slot?.assetPath && <img src={slot.assetPath} alt="" draggable={false} />}
           </div>
@@ -371,9 +378,10 @@ interface CanvasAreaProps {
   onAssignAsset: (slotId: string, assetId: number, assetPath: string) => void;
   onClearSlot: (slotId: string) => void;
   onUpdateTransform: (slotId: string, offsetX: number, offsetY: number, scale: number) => void;
+  onUpdateGeometry: (slotId: string, left: number, top: number, width: number, height: number) => void;
 }
 
-function CanvasArea({ spread, bookSize, zoom, selectedSlotId, onSelectSlot, onAssignAsset, onClearSlot, onUpdateTransform }: CanvasAreaProps) {
+function CanvasArea({ spread, bookSize, zoom, selectedSlotId, onSelectSlot, onAssignAsset, onClearSlot, onUpdateTransform, onUpdateGeometry }: CanvasAreaProps) {
   if (!spread) {
     return (
       <div className="canvas-area">
@@ -413,6 +421,7 @@ function CanvasArea({ spread, bookSize, zoom, selectedSlotId, onSelectSlot, onAs
                   onClear={() => onClearSlot(slotId)}
                   onSelect={() => onSelectSlot(slotId)}
                   onUpdateTransform={(offsetX, offsetY, scale) => onUpdateTransform(slotId, offsetX, offsetY, scale)}
+                  onUpdateGeometry={(left, top, width, height) => onUpdateGeometry(slotId, left, top, width, height)}
                 />
               );
             })}
@@ -435,6 +444,7 @@ function CanvasArea({ spread, bookSize, zoom, selectedSlotId, onSelectSlot, onAs
                   onClear={() => onClearSlot(slotId)}
                   onSelect={() => onSelectSlot(slotId)}
                   onUpdateTransform={(offsetX, offsetY, scale) => onUpdateTransform(slotId, offsetX, offsetY, scale)}
+                  onUpdateGeometry={(left, top, width, height) => onUpdateGeometry(slotId, left, top, width, height)}
                 />
               );
             })}
@@ -445,6 +455,8 @@ function CanvasArea({ spread, bookSize, zoom, selectedSlotId, onSelectSlot, onAs
   );
 }
 
+type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
+
 interface CanvasSlotProps {
   def: SlotDef;
   slot: Slot;
@@ -453,19 +465,36 @@ interface CanvasSlotProps {
   onClear: () => void;
   onSelect: () => void;
   onUpdateTransform: (offsetX: number, offsetY: number, scale: number) => void;
+  onUpdateGeometry: (left: number, top: number, width: number, height: number) => void;
 }
 
-function CanvasSlot({ def, slot, isSelected, onAssign, onClear, onSelect, onUpdateTransform }: CanvasSlotProps) {
+function CanvasSlot({ def, slot, isSelected, onAssign, onClear, onSelect, onUpdateTransform, onUpdateGeometry }: CanvasSlotProps) {
   const [isDragOver, setIsDragOver] = useState(false);
-  // Live pan state during drag (not yet committed to store)
   const [liveOffset, setLiveOffset] = useState<{ x: number; y: number } | null>(null);
-  const panRef = useRef<{ startMx: number; startMy: number; startOx: number; startOy: number } | null>(null);
+  const [liveGeometry, setLiveGeometry] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+
+  const panRef    = useRef<{ startMx: number; startMy: number; startOx: number; startOy: number } | null>(null);
+  const moveRef   = useRef<{ startMx: number; startMy: number; startLeft: number; startTop: number; startWidth: number; startHeight: number; parentW: number; parentH: number } | null>(null);
+  const resizeRef = useRef<{ handle: ResizeHandle; startMx: number; startMy: number; startLeft: number; startTop: number; startWidth: number; startHeight: number; parentW: number; parentH: number } | null>(null);
+
   const containerRef = useRef<HTMLDivElement>(null);
-  const imgRef = useRef<HTMLImageElement>(null);
+  const imgRef       = useRef<HTMLImageElement>(null);
+  const slotRef      = useRef<HTMLDivElement>(null);
 
   const currentOffsetX = liveOffset?.x ?? (slot.offsetX ?? 0);
   const currentOffsetY = liveOffset?.y ?? (slot.offsetY ?? 0);
-  const currentScale = slot.scale ?? 1;
+  const currentScale   = slot.scale ?? 1;
+
+  // Effective geometry: slot custom override, else layout def
+  const effectiveLeft   = slot.customLeft   ?? parseFloat(def.left);
+  const effectiveTop    = slot.customTop    ?? parseFloat(def.top);
+  const effectiveWidth  = slot.customWidth  ?? parseFloat(def.width);
+  const effectiveHeight = slot.customHeight ?? parseFloat(def.height);
+
+  const currentLeft   = liveGeometry?.left   ?? effectiveLeft;
+  const currentTop    = liveGeometry?.top    ?? effectiveTop;
+  const currentWidth  = liveGeometry?.width  ?? effectiveWidth;
+  const currentHeight = liveGeometry?.height ?? effectiveHeight;
 
   function clampOffset(ox: number, oy: number, scale: number): { x: number; y: number } {
     const container = containerRef.current;
@@ -473,7 +502,6 @@ function CanvasSlot({ def, slot, isSelected, onAssign, onClear, onSelect, onUpda
     if (!container || !img) return { x: ox, y: oy };
     const cw = container.clientWidth;
     const ch = container.clientHeight;
-    // offsetWidth/offsetHeight = layout size before CSS transform scale
     const iw = img.offsetWidth;
     const ih = img.offsetHeight;
     const maxX = Math.max(0, (iw * scale - cw) / 2);
@@ -500,7 +528,6 @@ function CanvasSlot({ def, slot, isSelected, onAssign, onClear, onSelect, onUpda
     computeCoverScale(e.currentTarget);
   }
 
-  // Handle already-cached images that won't fire onLoad
   useEffect(() => {
     if (slot.scale != null || !slot.assetPath || !imgRef.current) return;
     const img = imgRef.current;
@@ -508,14 +535,20 @@ function CanvasSlot({ def, slot, isSelected, onAssign, onClear, onSelect, onUpda
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slot.assetPath]);
 
-  // Cleanup pan listeners on unmount
+  // Cleanup all window listeners on unmount
   useEffect(() => {
     return () => {
       window.removeEventListener('mousemove', handlePanMove);
       window.removeEventListener('mouseup', handlePanEnd);
+      window.removeEventListener('mousemove', handleMoveMove);
+      window.removeEventListener('mouseup', handleMoveEnd);
+      window.removeEventListener('mousemove', handleResizeMove);
+      window.removeEventListener('mouseup', handleResizeEnd);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Pan ───────────────────────────────────────────────────────────────
 
   function handlePanStart(e: React.MouseEvent) {
     if (!slot.assetPath) return;
@@ -561,10 +594,126 @@ function CanvasSlot({ def, slot, isSelected, onAssign, onClear, onSelect, onUpda
     onUpdateTransform(clampedX, clampedY, newScale);
   }
 
+  // ── Move ──────────────────────────────────────────────────────────────
+
+  function handleMoveStart(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    const parent = slotRef.current?.parentElement;
+    if (!parent) return;
+    const rect = parent.getBoundingClientRect();
+    moveRef.current = {
+      startMx: e.clientX,
+      startMy: e.clientY,
+      startLeft: effectiveLeft,
+      startTop: effectiveTop,
+      startWidth: effectiveWidth,
+      startHeight: effectiveHeight,
+      parentW: rect.width,
+      parentH: rect.height,
+    };
+    window.addEventListener('mousemove', handleMoveMove);
+    window.addEventListener('mouseup', handleMoveEnd);
+  }
+
+  function handleMoveMove(e: MouseEvent) {
+    if (!moveRef.current) return;
+    const { startMx, startMy, startLeft, startTop, startWidth, startHeight, parentW, parentH } = moveRef.current;
+    const newLeft = Math.max(0, Math.min(100 - startWidth, startLeft + (e.clientX - startMx) / parentW * 100));
+    const newTop  = Math.max(0, Math.min(100 - startHeight, startTop  + (e.clientY - startMy) / parentH * 100));
+    setLiveGeometry({ left: newLeft, top: newTop, width: startWidth, height: startHeight });
+  }
+
+  function handleMoveEnd(e: MouseEvent) {
+    if (!moveRef.current) return;
+    const { startMx, startMy, startLeft, startTop, startWidth, startHeight, parentW, parentH } = moveRef.current;
+    const newLeft = Math.max(0, Math.min(100 - startWidth, startLeft + (e.clientX - startMx) / parentW * 100));
+    const newTop  = Math.max(0, Math.min(100 - startHeight, startTop  + (e.clientY - startMy) / parentH * 100));
+    moveRef.current = null;
+    setLiveGeometry(null);
+    window.removeEventListener('mousemove', handleMoveMove);
+    window.removeEventListener('mouseup', handleMoveEnd);
+    onUpdateGeometry(newLeft, newTop, startWidth, startHeight);
+  }
+
+  // ── Resize ────────────────────────────────────────────────────────────
+
+  function getResizeGeometry(e: { clientX: number; clientY: number }) {
+    if (!resizeRef.current) return null;
+    const { handle, startMx, startMy, startLeft, startTop, startWidth, startHeight, parentW, parentH } = resizeRef.current;
+    const dx = (e.clientX - startMx) / parentW * 100;
+    const dy = (e.clientY - startMy) / parentH * 100;
+    const MIN = 5;
+
+    let left = startLeft, top = startTop, width = startWidth, height = startHeight;
+
+    if (handle === 'e' || handle === 'ne' || handle === 'se') {
+      width = Math.max(MIN, startWidth + dx);
+    }
+    if (handle === 'w' || handle === 'nw' || handle === 'sw') {
+      const newW = Math.max(MIN, startWidth - dx);
+      left = startLeft + (startWidth - newW);
+      width = newW;
+    }
+    if (handle === 's' || handle === 'se' || handle === 'sw') {
+      height = Math.max(MIN, startHeight + dy);
+    }
+    if (handle === 'n' || handle === 'nw' || handle === 'ne') {
+      const newH = Math.max(MIN, startHeight - dy);
+      top = startTop + (startHeight - newH);
+      height = newH;
+    }
+
+    left   = Math.max(0, left);
+    top    = Math.max(0, top);
+    width  = Math.min(width,  100 - left);
+    height = Math.min(height, 100 - top);
+
+    return { left, top, width, height };
+  }
+
+  function handleResizeStart(e: React.MouseEvent, handle: ResizeHandle) {
+    e.preventDefault();
+    e.stopPropagation();
+    const parent = slotRef.current?.parentElement;
+    if (!parent) return;
+    const rect = parent.getBoundingClientRect();
+    resizeRef.current = {
+      handle,
+      startMx: e.clientX,
+      startMy: e.clientY,
+      startLeft: effectiveLeft,
+      startTop: effectiveTop,
+      startWidth: effectiveWidth,
+      startHeight: effectiveHeight,
+      parentW: rect.width,
+      parentH: rect.height,
+    };
+    window.addEventListener('mousemove', handleResizeMove);
+    window.addEventListener('mouseup', handleResizeEnd);
+  }
+
+  function handleResizeMove(e: MouseEvent) {
+    const geom = getResizeGeometry(e);
+    if (geom) setLiveGeometry(geom);
+  }
+
+  function handleResizeEnd(e: MouseEvent) {
+    const geom = getResizeGeometry(e);
+    resizeRef.current = null;
+    setLiveGeometry(null);
+    window.removeEventListener('mousemove', handleResizeMove);
+    window.removeEventListener('mouseup', handleResizeEnd);
+    if (geom) onUpdateGeometry(geom.left, geom.top, geom.width, geom.height);
+  }
+
+  const RESIZE_HANDLES: ResizeHandle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
+
   return (
     <div
+      ref={slotRef}
       className={`canvas-slot${isDragOver ? ' drag-over' : ''}${isSelected ? ' selected' : ''}`}
-      style={{ left: def.left, top: def.top, width: def.width, height: def.height }}
+      style={{ left: `${currentLeft}%`, top: `${currentTop}%`, width: `${currentWidth}%`, height: `${currentHeight}%` }}
       onClick={e => { e.stopPropagation(); onSelect(); }}
       onDragOver={e => { e.preventDefault(); e.stopPropagation(); setIsDragOver(true); }}
       onDragLeave={() => setIsDragOver(false)}
@@ -578,6 +727,16 @@ function CanvasSlot({ def, slot, isSelected, onAssign, onClear, onSelect, onUpda
       }}
       onWheel={handleWheel}
     >
+      {isSelected && (
+        <div className="slot-move-handle" onMouseDown={handleMoveStart} title="Перемістити" />
+      )}
+      {isSelected && RESIZE_HANDLES.map(h => (
+        <div
+          key={h}
+          className={`slot-resize-handle slot-resize-handle--${h}`}
+          onMouseDown={e => handleResizeStart(e, h)}
+        />
+      ))}
       <div className="canvas-slot-inner" ref={containerRef}>
         {slot.assetPath ? (
           <>

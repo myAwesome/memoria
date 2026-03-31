@@ -21,6 +21,11 @@ export interface Slot {
   offsetX?: number;  // px offset for pan, default 0
   offsetY?: number;
   scale?: number;    // zoom factor, default 1
+  // Custom geometry overrides (% of page-half, 0–100); absent = use layout def
+  customLeft?: number;
+  customTop?: number;
+  customWidth?: number;
+  customHeight?: number;
 }
 
 export interface PageData {
