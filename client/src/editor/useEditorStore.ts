@@ -77,7 +77,7 @@ function applyAction(present: ProjectData, action: Action): ProjectData {
         const page = s[side];
         const slots = page.slots.map(sl =>
           sl.id === action.slotId
-            ? { id: sl.id, assetId: action.assetId, assetPath: action.assetPath }
+            ? { ...sl, assetId: action.assetId, assetPath: action.assetPath }
             : sl
         );
         return { ...s, [side]: { ...page, slots } };
@@ -91,7 +91,9 @@ function applyAction(present: ProjectData, action: Action): ProjectData {
         if (s.id !== action.spreadId) return s;
         const page = s[side];
         const slots = page.slots.map(sl =>
-          sl.id === action.slotId ? { id: sl.id } : sl
+          sl.id === action.slotId
+            ? { id: sl.id, customLeft: sl.customLeft, customTop: sl.customTop, customWidth: sl.customWidth, customHeight: sl.customHeight }
+            : sl
         );
         return { ...s, [side]: { ...page, slots } };
       });
