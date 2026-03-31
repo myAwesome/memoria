@@ -460,10 +460,36 @@ function CanvasSlot({ def, slot, isSelected, onAssign, onClear, onSelect, onUpda
   // Live pan state during drag (not yet committed to store)
   const [liveOffset, setLiveOffset] = useState<{ x: number; y: number } | null>(null);
   const panRef = useRef<{ startMx: number; startMy: number; startOx: number; startOy: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
 
   const currentOffsetX = liveOffset?.x ?? (slot.offsetX ?? 0);
   const currentOffsetY = liveOffset?.y ?? (slot.offsetY ?? 0);
   const currentScale = slot.scale ?? 1;
+
+  function computeCoverScale(img: HTMLImageElement) {
+    const container = containerRef.current;
+    if (!container) return;
+    const cw = container.clientWidth;
+    const ch = container.clientHeight;
+    const iw = img.naturalWidth;
+    const ih = img.naturalHeight;
+    if (!iw || !ih || !cw || !ch) return;
+    onUpdateTransform(0, 0, Math.max(cw / iw, ch / ih));
+  }
+
+  function handleImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
+    if (slot.scale != null) return;
+    computeCoverScale(e.currentTarget);
+  }
+
+  // Handle already-cached images that won't fire onLoad
+  useEffect(() => {
+    if (slot.scale != null || !slot.assetPath || !imgRef.current) return;
+    const img = imgRef.current;
+    if (img.complete && img.naturalWidth > 0) computeCoverScale(img);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slot.assetPath]);
 
   // Cleanup pan listeners on unmount
   useEffect(() => {
@@ -532,10 +558,11 @@ function CanvasSlot({ def, slot, isSelected, onAssign, onClear, onSelect, onUpda
       }}
       onWheel={handleWheel}
     >
-      <div className="canvas-slot-inner">
+      <div className="canvas-slot-inner" ref={containerRef}>
         {slot.assetPath ? (
           <>
             <img
+              ref={imgRef}
               src={slot.assetPath}
               alt=""
               className="slot-image"
@@ -543,6 +570,7 @@ function CanvasSlot({ def, slot, isSelected, onAssign, onClear, onSelect, onUpda
               style={{
                 transform: `translate(calc(-50% + ${currentOffsetX}px), calc(-50% + ${currentOffsetY}px)) scale(${currentScale})`,
               }}
+              onLoad={handleImageLoad}
               onMouseDown={handlePanStart}
             />
             <button className="slot-clear-btn" onClick={e => { e.stopPropagation(); onClear(); }} title="Очистити слот">×</button>

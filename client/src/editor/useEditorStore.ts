@@ -76,7 +76,7 @@ function applyAction(present: ProjectData, action: Action): ProjectData {
         const page = s[side];
         const slots = page.slots.map(sl =>
           sl.id === action.slotId
-            ? { ...sl, assetId: action.assetId, assetPath: action.assetPath }
+            ? { id: sl.id, assetId: action.assetId, assetPath: action.assetPath }
             : sl
         );
         return { ...s, [side]: { ...page, slots } };
