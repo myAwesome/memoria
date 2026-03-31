@@ -467,6 +467,23 @@ function CanvasSlot({ def, slot, isSelected, onAssign, onClear, onSelect, onUpda
   const currentOffsetY = liveOffset?.y ?? (slot.offsetY ?? 0);
   const currentScale = slot.scale ?? 1;
 
+  function clampOffset(ox: number, oy: number, scale: number): { x: number; y: number } {
+    const container = containerRef.current;
+    const img = imgRef.current;
+    if (!container || !img) return { x: ox, y: oy };
+    const cw = container.clientWidth;
+    const ch = container.clientHeight;
+    // offsetWidth/offsetHeight = layout size before CSS transform scale
+    const iw = img.offsetWidth;
+    const ih = img.offsetHeight;
+    const maxX = Math.max(0, (iw * scale - cw) / 2);
+    const maxY = Math.max(0, (ih * scale - ch) / 2);
+    return {
+      x: Math.max(-maxX, Math.min(maxX, ox)),
+      y: Math.max(-maxY, Math.min(maxY, oy)),
+    };
+  }
+
   function computeCoverScale(img: HTMLImageElement) {
     const container = containerRef.current;
     if (!container) return;
@@ -517,14 +534,16 @@ function CanvasSlot({ def, slot, isSelected, onAssign, onClear, onSelect, onUpda
   function handlePanMove(e: MouseEvent) {
     if (!panRef.current) return;
     const { startMx, startMy, startOx, startOy } = panRef.current;
-    setLiveOffset({ x: startOx + (e.clientX - startMx), y: startOy + (e.clientY - startMy) });
+    const raw = { x: startOx + (e.clientX - startMx), y: startOy + (e.clientY - startMy) };
+    setLiveOffset(clampOffset(raw.x, raw.y, currentScale));
   }
 
   function handlePanEnd(e: MouseEvent) {
     if (!panRef.current) return;
     const { startMx, startMy, startOx, startOy } = panRef.current;
-    const finalX = startOx + (e.clientX - startMx);
-    const finalY = startOy + (e.clientY - startMy);
+    const rawX = startOx + (e.clientX - startMx);
+    const rawY = startOy + (e.clientY - startMy);
+    const { x: finalX, y: finalY } = clampOffset(rawX, rawY, currentScale);
     panRef.current = null;
     setLiveOffset(null);
     window.removeEventListener('mousemove', handlePanMove);
@@ -538,7 +557,8 @@ function CanvasSlot({ def, slot, isSelected, onAssign, onClear, onSelect, onUpda
     e.stopPropagation();
     const delta = e.deltaY > 0 ? -0.1 : 0.1;
     const newScale = Math.max(0.5, Math.min(4, currentScale + delta));
-    onUpdateTransform(currentOffsetX, currentOffsetY, newScale);
+    const { x: clampedX, y: clampedY } = clampOffset(currentOffsetX, currentOffsetY, newScale);
+    onUpdateTransform(clampedX, clampedY, newScale);
   }
 
   return (
