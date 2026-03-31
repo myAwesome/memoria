@@ -477,9 +477,10 @@ function CanvasSlot({ def, slot, isSelected, onAssign, onClear, onSelect, onUpda
   const moveRef   = useRef<{ startMx: number; startMy: number; startLeft: number; startTop: number; startWidth: number; startHeight: number; parentW: number; parentH: number } | null>(null);
   const resizeRef = useRef<{ handle: ResizeHandle; startMx: number; startMy: number; startLeft: number; startTop: number; startWidth: number; startHeight: number; parentW: number; parentH: number } | null>(null);
 
-  const containerRef = useRef<HTMLDivElement>(null);
-  const imgRef       = useRef<HTMLImageElement>(null);
-  const slotRef      = useRef<HTMLDivElement>(null);
+  const containerRef          = useRef<HTMLDivElement>(null);
+  const imgRef                = useRef<HTMLImageElement>(null);
+  const slotRef               = useRef<HTMLDivElement>(null);
+  const geometryInitialized   = useRef(false);
 
   const currentOffsetX = liveOffset?.x ?? (slot.offsetX ?? 0);
   const currentOffsetY = liveOffset?.y ?? (slot.offsetY ?? 0);
@@ -534,6 +535,18 @@ function CanvasSlot({ def, slot, isSelected, onAssign, onClear, onSelect, onUpda
     if (img.complete && img.naturalWidth > 0) computeCoverScale(img);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slot.assetPath]);
+
+  // Recompute cover scale when placeholder is resized (skip initial mount)
+  useEffect(() => {
+    if (!geometryInitialized.current) {
+      geometryInitialized.current = true;
+      return;
+    }
+    if (!slot.assetPath || !imgRef.current) return;
+    const img = imgRef.current;
+    if (img.complete && img.naturalWidth > 0) computeCoverScale(img);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveWidth, effectiveHeight]);
 
   // Cleanup all window listeners on unmount
   useEffect(() => {
