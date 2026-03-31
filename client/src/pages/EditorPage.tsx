@@ -662,7 +662,7 @@ function PhotosTab({ selectedSlotId, onAssignToSelected }: PhotosTabProps) {
           }
         };
         xhr.onloadend = () => resolve();
-        xhr.open('POST', '/asset/upload');
+        xhr.open('POST', '/api/asset/upload');
         xhr.send(formData);
       });
     }

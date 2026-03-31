@@ -178,13 +178,12 @@ export default function ProjectPage() {
                 <div className="book-date">{formatDate(item.created_at)}</div>
               </div>
               <div className="book-actions">
-                <button className="btn btn-sm btn-primary" onClick={() => navigate(`/project/${item.id}/edit`)}>Відкрити</button>
-                <button className="btn btn-sm" onClick={() => openEdit(item)}>Редагувати</button>
+                <button className="btn btn-sm" onClick={() => openEdit(item)}>Edit</button>
                 <button
                   className="btn btn-sm btn-danger"
                   onClick={() => handleDelete(item.id, item.name ?? String(item.id))}
                 >
-                  Видалити
+                  Remove
                 </button>
               </div>
             </div>
