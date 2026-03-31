@@ -1308,6 +1308,44 @@ body {
   opacity: 0.5;
 }
 
+/* ── Slot move & resize handles (visible when selected) ── */
+.slot-move-handle {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 28px;
+  height: 14px;
+  background: var(--accent);
+  border-radius: 3px;
+  cursor: move;
+  z-index: 20;
+  opacity: 0.85;
+}
+
+.slot-move-handle:hover {
+  opacity: 1;
+}
+
+.slot-resize-handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: var(--accent);
+  border: 2px solid #fff;
+  border-radius: 2px;
+  z-index: 20;
+}
+
+.slot-resize-handle--nw { top: -5px;  left: -5px;  cursor: nw-resize; }
+.slot-resize-handle--n  { top: -5px;  left: calc(50% - 5px); cursor: n-resize; }
+.slot-resize-handle--ne { top: -5px;  right: -5px; cursor: ne-resize; }
+.slot-resize-handle--e  { top: calc(50% - 5px); right: -5px; cursor: e-resize; }
+.slot-resize-handle--se { bottom: -5px; right: -5px; cursor: se-resize; }
+.slot-resize-handle--s  { bottom: -5px; left: calc(50% - 5px); cursor: s-resize; }
+.slot-resize-handle--sw { bottom: -5px; left: -5px;  cursor: sw-resize; }
+.slot-resize-handle--w  { top: calc(50% - 5px); left: -5px; cursor: w-resize; }
+
 /* ── Spread divider (center fold) ── */
 .canvas-spread-divider {
   position: absolute;
