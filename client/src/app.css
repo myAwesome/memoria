@@ -795,11 +795,29 @@ body {
   user-select: none;
 }
 
+.editor-toggle-btn {
+  min-width: 122px;
+}
+
+.editor-toggle-btn.is-collapsed {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--sort-hover-bg);
+}
+
 /* ── Body: left | canvas | right ── */
 .editor-body {
   flex: 1;
   display: flex;
   overflow: hidden;
+}
+
+.editor-body--left-collapsed .canvas-area {
+  border-left: none;
+}
+
+.editor-body--right-collapsed .canvas-area {
+  border-right: none;
 }
 
 /* ── Left Panel ── */
