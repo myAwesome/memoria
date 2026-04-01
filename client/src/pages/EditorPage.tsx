@@ -110,6 +110,8 @@ function EditorInner({ projectId, projectName, initialData, initialCoverAssetPat
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [coverAssetPath, setCoverAssetPath] = useState<string | null>(initialCoverAssetPath);
+  const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = useState(false);
+  const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(false);
   const isFirstRender = useRef(true);
 
   const safeIdx = store.data.spreads.length > 0
@@ -182,24 +184,45 @@ function EditorInner({ projectId, projectName, initialData, initialCoverAssetPat
           ⌫ Розворот
         </button>
         <div className="toolbar-divider" />
+        <button
+          className={`btn btn-sm editor-toggle-btn${isLeftPanelCollapsed ? ' is-collapsed' : ''}`}
+          onClick={() => setIsLeftPanelCollapsed(value => !value)}
+          title={isLeftPanelCollapsed ? 'Показати лівий сайдбар' : 'Згорнути лівий сайдбар'}
+          aria-pressed={isLeftPanelCollapsed}
+        >
+          {isLeftPanelCollapsed ? '▸ Лівий сайдбар' : '◂ Лівий сайдбар'}
+        </button>
+        <button
+          className={`btn btn-sm editor-toggle-btn${isRightPanelCollapsed ? ' is-collapsed' : ''}`}
+          onClick={() => setIsRightPanelCollapsed(value => !value)}
+          title={isRightPanelCollapsed ? 'Показати правий сайдбар' : 'Згорнути правий сайдбар'}
+          aria-pressed={isRightPanelCollapsed}
+        >
+          {isRightPanelCollapsed ? 'Права панель ◂' : 'Права панель ▸'}
+        </button>
+        <div className="toolbar-divider" />
         <button className="btn btn-sm" onClick={() => setZoom(z => Math.max(0.25, +(z - 0.25).toFixed(2)))} title="Зменшити">−</button>
         <span className="zoom-label">{Math.round(zoom * 100)}%</span>
         <button className="btn btn-sm" onClick={() => setZoom(z => Math.min(3, +(z + 0.25).toFixed(2)))} title="Збільшити">+</button>
         <button className="btn btn-sm" onClick={() => setZoom(1)} title="Скинути масштаб">1:1</button>
       </div>
 
-      <div className="editor-body">
-        <LeftPanel
-          spreads={store.data.spreads}
-          currentIdx={safeIdx}
-          bookSize={bookSize}
-          onSelect={setCurrentSpreadIdx}
-          onAdd={store.addSpread}
-          onReorder={store.reorderSpreads}
-          coverAssetPath={coverAssetPath}
-          onSetCover={handleSetCover}
-          onClearCover={handleClearCover}
-        />
+      <div
+        className={`editor-body${isLeftPanelCollapsed ? ' editor-body--left-collapsed' : ''}${isRightPanelCollapsed ? ' editor-body--right-collapsed' : ''}`}
+      >
+        {!isLeftPanelCollapsed && (
+          <LeftPanel
+            spreads={store.data.spreads}
+            currentIdx={safeIdx}
+            bookSize={bookSize}
+            onSelect={setCurrentSpreadIdx}
+            onAdd={store.addSpread}
+            onReorder={store.reorderSpreads}
+            coverAssetPath={coverAssetPath}
+            onSetCover={handleSetCover}
+            onClearCover={handleClearCover}
+          />
+        )}
         <CanvasArea
           spread={currentSpread}
           bookSize={bookSize}
@@ -219,18 +242,20 @@ function EditorInner({ projectId, projectName, initialData, initialCoverAssetPat
             currentSpread && store.updateSlotGeometry(currentSpread.id, slotId, left, top, width, height)
           }
         />
-        <RightPanel
-          spread={currentSpread}
-          selectedSlotId={selectedSlotId}
-          onSetLayout={(side, layoutId) =>
-            currentSpread && store.setLayout(currentSpread.id, side, layoutId)
-          }
-          onAssignToSelected={(assetId, assetPath) => {
-            if (selectedSlotId && currentSpread) {
-              store.assignAsset(currentSpread.id, selectedSlotId, assetId, assetPath);
+        {!isRightPanelCollapsed && (
+          <RightPanel
+            spread={currentSpread}
+            selectedSlotId={selectedSlotId}
+            onSetLayout={(side, layoutId) =>
+              currentSpread && store.setLayout(currentSpread.id, side, layoutId)
             }
-          }}
-        />
+            onAssignToSelected={(assetId, assetPath) => {
+              if (selectedSlotId && currentSpread) {
+                store.assignAsset(currentSpread.id, selectedSlotId, assetId, assetPath);
+              }
+            }}
+          />
+        )}
       </div>
     </div>
   );
