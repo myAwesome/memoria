@@ -622,16 +622,6 @@ function CanvasSlot({ def, slot, isSelected, onAssign, onClear, onSelect, onUpda
     onUpdateTransform(finalX, finalY, currentScale);
   }
 
-  function handleWheel(e: React.WheelEvent) {
-    if (!slot.assetPath) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    const newScale = Math.max(0.5, Math.min(4, currentScale + delta));
-    const { x: clampedX, y: clampedY } = clampOffset(currentOffsetX, currentOffsetY, newScale);
-    onUpdateTransform(clampedX, clampedY, newScale);
-  }
-
   // ── Move ──────────────────────────────────────────────────────────────
 
   function handleMoveStart(e: React.MouseEvent) {
@@ -763,7 +753,6 @@ function CanvasSlot({ def, slot, isSelected, onAssign, onClear, onSelect, onUpda
         const assetPath = e.dataTransfer.getData('assetPath');
         if (assetId && assetPath) onAssign(assetId, assetPath);
       }}
-      onWheel={handleWheel}
     >
       {isSelected && (
         <div className="slot-move-handle" onMouseDown={handleMoveStart} title="Перемістити" />
