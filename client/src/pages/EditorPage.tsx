@@ -119,7 +119,7 @@ function getPageBackgroundStyle(page: PageData) {
 function EditorInner({ projectId, projectName, initialData, initialCoverAssetPath, onBack }: EditorInnerProps) {
   const store = useEditorStore(initialData);
   const [currentSpreadIdx, setCurrentSpreadIdx] = useState(0);
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(0.75);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [coverAssetPath, setCoverAssetPath] = useState<string | null>(initialCoverAssetPath);
@@ -261,10 +261,15 @@ function EditorInner({ projectId, projectName, initialData, initialCoverAssetPat
             {isRightPanelCollapsed ? 'Права панель ◂' : 'Права панель ▸'}
           </button>
           <div className="toolbar-divider" />
-          <button className="btn btn-sm" onClick={() => setZoom(z => Math.max(0.25, +(z - 0.25).toFixed(2)))} title="Зменшити">−</button>
           <span className="zoom-label">{Math.round(zoom * 100)}%</span>
-          <button className="btn btn-sm" onClick={() => setZoom(z => Math.min(3, +(z + 0.25).toFixed(2)))} title="Збільшити">+</button>
-          <button className="btn btn-sm" onClick={() => setZoom(1)} title="Скинути масштаб">1:1</button>
+          <button
+            className="btn btn-sm"
+            onClick={() => setZoom(z => Math.min(2, +(z + 0.25).toFixed(2)))}
+            title="Збільшити"
+            disabled={zoom >= 2}
+          >
+            +
+          </button>
         </div>
       </div>
 
