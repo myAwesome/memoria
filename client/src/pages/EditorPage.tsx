@@ -536,6 +536,7 @@ function CanvasSlot({ def, slot, zoom, isSelected, onAssign, onClear, onSelect, 
   const [isDragOver, setIsDragOver] = useState(false);
   const [liveOffset, setLiveOffset] = useState<{ x: number; y: number } | null>(null);
   const [liveGeometry, setLiveGeometry] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+  const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
 
   const panRef    = useRef<{ startMx: number; startMy: number; startOx: number; startOy: number } | null>(null);
   const moveRef   = useRef<{ startMx: number; startMy: number; startLeft: number; startTop: number; startWidth: number; startHeight: number; parentW: number; parentH: number } | null>(null);
@@ -544,6 +545,7 @@ function CanvasSlot({ def, slot, zoom, isSelected, onAssign, onClear, onSelect, 
   const containerRef          = useRef<HTMLDivElement>(null);
   const imgRef                = useRef<HTMLImageElement>(null);
   const slotRef               = useRef<HTMLDivElement>(null);
+  const contextMenuRef        = useRef<HTMLDivElement>(null);
   const geometryInitialized   = useRef(false);
 
   const currentOffsetX = liveOffset?.x ?? (slot.offsetX ?? 0);
@@ -624,6 +626,25 @@ function CanvasSlot({ def, slot, zoom, isSelected, onAssign, onClear, onSelect, 
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!contextMenuPos) return;
+    const handleWindowMouseDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (contextMenuRef.current?.contains(target)) return;
+      if (slotRef.current?.contains(target)) return;
+      setContextMenuPos(null);
+    };
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setContextMenuPos(null);
+    };
+    window.addEventListener('mousedown', handleWindowMouseDown);
+    window.addEventListener('keydown', handleEscape);
+    return () => {
+      window.removeEventListener('mousedown', handleWindowMouseDown);
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [contextMenuPos]);
 
   // ── Pan ───────────────────────────────────────────────────────────────
 
@@ -775,19 +796,31 @@ function CanvasSlot({ def, slot, zoom, isSelected, onAssign, onClear, onSelect, 
   }
 
   const RESIZE_HANDLES: ResizeHandle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
+  const canDelete = Boolean(slot.assetPath);
 
   return (
     <div
       ref={slotRef}
       className={`canvas-slot${isDragOver ? ' drag-over' : ''}${isSelected ? ' selected' : ''}`}
       style={{ left: `${currentLeft}%`, top: `${currentTop}%`, width: `${currentWidth}%`, height: `${currentHeight}%` }}
-      onClick={e => { e.stopPropagation(); onSelect(); }}
+      onClick={e => {
+        e.stopPropagation();
+        onSelect();
+        setContextMenuPos({ x: e.clientX + 8, y: e.clientY + 8 });
+      }}
+      onContextMenu={e => {
+        e.preventDefault();
+        e.stopPropagation();
+        onSelect();
+        setContextMenuPos({ x: e.clientX + 8, y: e.clientY + 8 });
+      }}
       onDragOver={e => { e.preventDefault(); e.stopPropagation(); setIsDragOver(true); }}
       onDragLeave={() => setIsDragOver(false)}
       onDrop={e => {
         e.preventDefault();
         e.stopPropagation();
         setIsDragOver(false);
+        setContextMenuPos(null);
         const assetId = Number(e.dataTransfer.getData('assetId'));
         const assetPath = e.dataTransfer.getData('assetPath');
         if (assetId && assetPath) onAssign(assetId, assetPath);
@@ -818,7 +851,6 @@ function CanvasSlot({ def, slot, zoom, isSelected, onAssign, onClear, onSelect, 
               onLoad={handleImageLoad}
               onMouseDown={handlePanStart}
             />
-            <button className="slot-clear-btn" onClick={e => { e.stopPropagation(); onClear(); }} title="Очистити слот">×</button>
           </>
         ) : (
           <div className="slot-empty">
@@ -826,6 +858,28 @@ function CanvasSlot({ def, slot, zoom, isSelected, onAssign, onClear, onSelect, 
           </div>
         )}
       </div>
+      {contextMenuPos && (
+        <div
+          ref={contextMenuRef}
+          className="slot-context-menu"
+          style={{ left: `${contextMenuPos.x}px`, top: `${contextMenuPos.y}px` }}
+          onClick={e => e.stopPropagation()}
+        >
+          <button
+            className="slot-context-menu-item slot-context-menu-item--danger"
+            disabled={!canDelete}
+            onClick={() => {
+              onClear();
+              setContextMenuPos(null);
+            }}
+          >
+            delete
+          </button>
+          <button className="slot-context-menu-item" disabled>масштаб</button>
+          <button className="slot-context-menu-item" disabled>на сторінку</button>
+          <button className="slot-context-menu-item" disabled>копіювати</button>
+        </div>
+      )}
     </div>
   );
 }
