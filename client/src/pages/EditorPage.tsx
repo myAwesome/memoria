@@ -852,19 +852,20 @@ function PhotosTab({ selectedSlotId, onAssignToSelected }: PhotosTabProps) {
     return () => clearTimeout(t);
   }, [search, loadAssets]);
 
-  async function handleUpload(files: FileList) {
-    if (!files.length) return;
+  async function handleUpload(files: FileList | File[]) {
+    const filesToUpload = Array.from(files);
+    if (!filesToUpload.length) return;
     setUploading(true);
     setUploadProgress(0);
-    for (let i = 0; i < files.length; i++) {
+    for (let i = 0; i < filesToUpload.length; i++) {
       const formData = new FormData();
-      formData.append('file', files[i]);
+      formData.append('file', filesToUpload[i]);
       await new Promise<void>(resolve => {
         const xhr = new XMLHttpRequest();
         xhr.upload.onprogress = e => {
           if (e.lengthComputable) {
             const fileProgress = e.loaded / e.total;
-            setUploadProgress(Math.round(((i + fileProgress) / files.length) * 100));
+            setUploadProgress(Math.round(((i + fileProgress) / filesToUpload.length) * 100));
           }
         };
         xhr.onloadend = () => resolve();
@@ -907,7 +908,11 @@ function PhotosTab({ selectedSlotId, onAssignToSelected }: PhotosTabProps) {
         accept="image/*"
         multiple
         style={{ display: 'none' }}
-        onChange={e => { if (e.target.files) handleUpload(e.target.files); e.target.value = ''; }}
+        onChange={e => {
+          const files = e.target.files ? Array.from(e.target.files) : [];
+          if (files.length) handleUpload(files);
+          e.target.value = '';
+        }}
       />
       <div className="photos-search-row">
         <input
