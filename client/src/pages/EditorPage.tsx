@@ -125,13 +125,17 @@ function EditorInner({ projectId, projectName, initialData, initialCoverAssetPat
   const [coverAssetPath, setCoverAssetPath] = useState<string | null>(initialCoverAssetPath);
   const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = useState(false);
   const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(false);
+  const [isDeleteMenuOpen, setIsDeleteMenuOpen] = useState(false);
   const isFirstRender = useRef(true);
+  const deleteMenuRef = useRef<HTMLDivElement>(null);
 
   const safeIdx = store.data.spreads.length > 0
     ? Math.max(0, Math.min(currentSpreadIdx, store.data.spreads.length - 1))
     : -1;
   const currentSpread = safeIdx >= 0 ? store.data.spreads[safeIdx] : null;
   const bookSize = BOOK_SIZES.find(s => s.id === store.data.size) ?? BOOK_SIZES[0];
+  const currentPageStart = safeIdx >= 0 ? (safeIdx * 2) + 1 : 0;
+  const currentPageEnd = safeIdx >= 0 ? currentPageStart + 1 : 0;
 
   // Auto-save with 2-second debounce
   useEffect(() => {
@@ -158,15 +162,27 @@ function EditorInner({ projectId, projectName, initialData, initialCoverAssetPat
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.key === 'z' && !e.shiftKey) { e.preventDefault(); store.undo(); }
       if (mod && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); store.redo(); }
+      if (e.key === 'Escape') setIsDeleteMenuOpen(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [store.undo, store.redo]);
 
+  useEffect(() => {
+    function onOutsideClick(e: MouseEvent) {
+      if (!deleteMenuRef.current?.contains(e.target as Node)) {
+        setIsDeleteMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onOutsideClick);
+    return () => document.removeEventListener('mousedown', onOutsideClick);
+  }, []);
+
   function handleDeleteSpread() {
     if (safeIdx < 0) return;
     store.deleteSpread(safeIdx);
     setCurrentSpreadIdx(idx => Math.max(0, idx - (idx >= store.data.spreads.length - 1 ? 1 : 0)));
+    setIsDeleteMenuOpen(false);
   }
 
   async function handleSetCover(assetId: number, assetPath: string) {
@@ -186,38 +202,70 @@ function EditorInner({ projectId, projectName, initialData, initialCoverAssetPat
   return (
     <div className="editor-layout">
       <div className="editor-toolbar">
-        <button className="btn btn-sm" onClick={onBack}>← Назад</button>
-        <span className="editor-project-name">{projectName}</span>
-        <span className={`save-status save-status--${saveStatus}`}>{SAVE_LABELS[saveStatus]}</span>
-        <div className="toolbar-spacer" />
-        <button className="btn btn-sm" onClick={store.undo} disabled={!store.canUndo} title="Відмінити (Ctrl+Z)">↩</button>
-        <button className="btn btn-sm" onClick={store.redo} disabled={!store.canRedo} title="Повторити (Ctrl+Y)">↪</button>
-        <div className="toolbar-divider" />
-        <button className="btn btn-sm btn-danger" onClick={handleDeleteSpread} disabled={safeIdx < 0} title="Видалити поточний розворот">
-          ⌫ Розворот
-        </button>
-        <div className="toolbar-divider" />
-        <button
-          className={`btn btn-sm editor-toggle-btn${isLeftPanelCollapsed ? ' is-collapsed' : ''}`}
-          onClick={() => setIsLeftPanelCollapsed(value => !value)}
-          title={isLeftPanelCollapsed ? 'Показати лівий сайдбар' : 'Згорнути лівий сайдбар'}
-          aria-pressed={isLeftPanelCollapsed}
-        >
-          {isLeftPanelCollapsed ? '▸ Лівий сайдбар' : '◂ Лівий сайдбар'}
-        </button>
-        <button
-          className={`btn btn-sm editor-toggle-btn${isRightPanelCollapsed ? ' is-collapsed' : ''}`}
-          onClick={() => setIsRightPanelCollapsed(value => !value)}
-          title={isRightPanelCollapsed ? 'Показати правий сайдбар' : 'Згорнути правий сайдбар'}
-          aria-pressed={isRightPanelCollapsed}
-        >
-          {isRightPanelCollapsed ? 'Права панель ◂' : 'Права панель ▸'}
-        </button>
-        <div className="toolbar-divider" />
-        <button className="btn btn-sm" onClick={() => setZoom(z => Math.max(0.25, +(z - 0.25).toFixed(2)))} title="Зменшити">−</button>
-        <span className="zoom-label">{Math.round(zoom * 100)}%</span>
-        <button className="btn btn-sm" onClick={() => setZoom(z => Math.min(3, +(z + 0.25).toFixed(2)))} title="Збільшити">+</button>
-        <button className="btn btn-sm" onClick={() => setZoom(1)} title="Скинути масштаб">1:1</button>
+        <div className="toolbar-left">
+          <button className="btn btn-sm" onClick={onBack}>← Назад</button>
+          <span className="editor-project-name">{projectName}</span>
+          <span className={`save-status save-status--${saveStatus}`}>{SAVE_LABELS[saveStatus]}</span>
+        </div>
+
+        <div className="toolbar-center">
+          <div className="editor-action-menu" ref={deleteMenuRef}>
+            <div className="editor-action-split">
+              <button
+                className="editor-action-btn editor-action-btn--danger"
+                onClick={handleDeleteSpread}
+                disabled={safeIdx < 0}
+                title="Видалити поточний розворот"
+              >
+                🗑
+              </button>
+              <button
+                className="editor-action-btn editor-action-btn--caret"
+                onClick={() => setIsDeleteMenuOpen(v => !v)}
+                disabled={safeIdx < 0}
+                aria-expanded={isDeleteMenuOpen}
+                title="Дії видалення"
+              >
+                ▾
+              </button>
+            </div>
+            {isDeleteMenuOpen && (
+              <div className="editor-action-dropdown">
+                <button className="editor-action-dropdown-item" onClick={handleDeleteSpread}>
+                  Видалити розворот
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="editor-action-group">
+            <button className="editor-action-btn" onClick={store.undo} disabled={!store.canUndo} title="Відмінити (Ctrl+Z)">↩</button>
+            <button className="editor-action-btn" onClick={store.redo} disabled={!store.canRedo} title="Повторити (Ctrl+Y)">↪</button>
+          </div>
+        </div>
+
+        <div className="toolbar-right">
+          <button
+            className={`btn btn-sm editor-toggle-btn${isLeftPanelCollapsed ? ' is-collapsed' : ''}`}
+            onClick={() => setIsLeftPanelCollapsed(value => !value)}
+            title={isLeftPanelCollapsed ? 'Показати лівий сайдбар' : 'Згорнути лівий сайдбар'}
+            aria-pressed={isLeftPanelCollapsed}
+          >
+            {isLeftPanelCollapsed ? '▸ Лівий сайдбар' : '◂ Лівий сайдбар'}
+          </button>
+          <button
+            className={`btn btn-sm editor-toggle-btn${isRightPanelCollapsed ? ' is-collapsed' : ''}`}
+            onClick={() => setIsRightPanelCollapsed(value => !value)}
+            title={isRightPanelCollapsed ? 'Показати правий сайдбар' : 'Згорнути правий сайдбар'}
+            aria-pressed={isRightPanelCollapsed}
+          >
+            {isRightPanelCollapsed ? 'Права панель ◂' : 'Права панель ▸'}
+          </button>
+          <div className="toolbar-divider" />
+          <button className="btn btn-sm" onClick={() => setZoom(z => Math.max(0.25, +(z - 0.25).toFixed(2)))} title="Зменшити">−</button>
+          <span className="zoom-label">{Math.round(zoom * 100)}%</span>
+          <button className="btn btn-sm" onClick={() => setZoom(z => Math.min(3, +(z + 0.25).toFixed(2)))} title="Збільшити">+</button>
+          <button className="btn btn-sm" onClick={() => setZoom(1)} title="Скинути масштаб">1:1</button>
+        </div>
       </div>
 
       <div
@@ -240,6 +288,12 @@ function EditorInner({ projectId, projectName, initialData, initialCoverAssetPat
           spread={currentSpread}
           bookSize={bookSize}
           zoom={zoom}
+          currentPageStart={currentPageStart}
+          currentPageEnd={currentPageEnd}
+          canGoPrev={safeIdx > 0}
+          canGoNext={safeIdx >= 0 && safeIdx < store.data.spreads.length - 1}
+          onPrevSpread={() => setCurrentSpreadIdx(idx => Math.max(0, idx - 1))}
+          onNextSpread={() => setCurrentSpreadIdx(idx => Math.min(store.data.spreads.length - 1, idx + 1))}
           selectedSlotId={selectedSlotId}
           onSelectSlot={setSelectedSlotId}
           onAssignAsset={(slotId, assetId, assetPath) =>
@@ -422,6 +476,12 @@ interface CanvasAreaProps {
   spread: Spread | null;
   bookSize: BookSize;
   zoom: number;
+  currentPageStart: number;
+  currentPageEnd: number;
+  canGoPrev: boolean;
+  canGoNext: boolean;
+  onPrevSpread: () => void;
+  onNextSpread: () => void;
   selectedSlotId: string | null;
   onSelectSlot: (slotId: string | null) => void;
   onAssignAsset: (slotId: string, assetId: number, assetPath: string) => void;
@@ -430,7 +490,23 @@ interface CanvasAreaProps {
   onUpdateGeometry: (slotId: string, left: number, top: number, width: number, height: number) => void;
 }
 
-function CanvasArea({ spread, bookSize, zoom, selectedSlotId, onSelectSlot, onAssignAsset, onClearSlot, onUpdateTransform, onUpdateGeometry }: CanvasAreaProps) {
+function CanvasArea({
+  spread,
+  bookSize,
+  zoom,
+  currentPageStart,
+  currentPageEnd,
+  canGoPrev,
+  canGoNext,
+  onPrevSpread,
+  onNextSpread,
+  selectedSlotId,
+  onSelectSlot,
+  onAssignAsset,
+  onClearSlot,
+  onUpdateTransform,
+  onUpdateGeometry,
+}: CanvasAreaProps) {
   if (!spread) {
     return (
       <div className="canvas-area">
@@ -451,8 +527,9 @@ function CanvasArea({ spread, bookSize, zoom, selectedSlotId, onSelectSlot, onAs
   const scaledSpreadHeight = baseSpreadHeight * zoom;
 
   return (
-    <div className="canvas-area" onClick={() => onSelectSlot(null)}>
-      <div className="canvas-scroll-inner">
+    <div className="canvas-area-shell">
+      <div className="canvas-area" onClick={() => onSelectSlot(null)}>
+        <div className="canvas-scroll-inner">
         <div
           className="canvas-page-zoom-wrap"
           style={{ width: `${scaledSpreadWidth}px`, height: `${scaledSpreadHeight}px` }}
@@ -513,6 +590,16 @@ function CanvasArea({ spread, bookSize, zoom, selectedSlotId, onSelectSlot, onAs
             </div>
           </div>
         </div>
+        </div>
+      </div>
+      <div className="canvas-spread-pager">
+        <button className="canvas-spread-pager-btn" onClick={onPrevSpread} disabled={!canGoPrev} aria-label="Попередній розворот">
+          ←
+        </button>
+        <div className="canvas-spread-pager-label">{currentPageStart} - {currentPageEnd}</div>
+        <button className="canvas-spread-pager-btn" onClick={onNextSpread} disabled={!canGoNext} aria-label="Наступний розворот">
+          →
+        </button>
       </div>
     </div>
   );
