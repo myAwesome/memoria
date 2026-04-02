@@ -1109,6 +1109,44 @@ body {
   cursor: grabbing;
 }
 
+.slot-context-menu {
+  position: fixed;
+  z-index: 1200;
+  min-width: 170px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+}
+
+.slot-context-menu-item {
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.slot-context-menu-item:hover:not(:disabled) {
+  background: var(--sort-hover-bg);
+}
+
+.slot-context-menu-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.slot-context-menu-item--danger {
+  color: #dc2626;
+}
+
 /* ── Panel hint when slot selected ── */
 .slot-assign-hint {
   font-size: 11px;
