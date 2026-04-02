@@ -31,6 +31,9 @@ export interface Slot {
 export interface PageData {
   layoutId: LayoutId;
   slots: Slot[];
+  bgColor?: string;
+  bgAssetId?: number;
+  bgAssetPath?: string;
 }
 
 export interface Spread {
