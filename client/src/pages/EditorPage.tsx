@@ -536,7 +536,7 @@ function CanvasSlot({ def, slot, zoom, isSelected, onAssign, onClear, onSelect, 
   const [isDragOver, setIsDragOver] = useState(false);
   const [liveOffset, setLiveOffset] = useState<{ x: number; y: number } | null>(null);
   const [liveGeometry, setLiveGeometry] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
-  const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const [isContextMenuOpen, setIsContextMenuOpen] = useState(false);
 
   const panRef    = useRef<{ startMx: number; startMy: number; startOx: number; startOy: number } | null>(null);
   const moveRef   = useRef<{ startMx: number; startMy: number; startLeft: number; startTop: number; startWidth: number; startHeight: number; parentW: number; parentH: number } | null>(null);
@@ -628,15 +628,15 @@ function CanvasSlot({ def, slot, zoom, isSelected, onAssign, onClear, onSelect, 
   }, []);
 
   useEffect(() => {
-    if (!contextMenuPos) return;
+    if (!isContextMenuOpen) return;
     const handleWindowMouseDown = (e: MouseEvent) => {
       const target = e.target as Node;
       if (contextMenuRef.current?.contains(target)) return;
       if (slotRef.current?.contains(target)) return;
-      setContextMenuPos(null);
+      setIsContextMenuOpen(false);
     };
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setContextMenuPos(null);
+      if (e.key === 'Escape') setIsContextMenuOpen(false);
     };
     window.addEventListener('mousedown', handleWindowMouseDown);
     window.addEventListener('keydown', handleEscape);
@@ -644,7 +644,7 @@ function CanvasSlot({ def, slot, zoom, isSelected, onAssign, onClear, onSelect, 
       window.removeEventListener('mousedown', handleWindowMouseDown);
       window.removeEventListener('keydown', handleEscape);
     };
-  }, [contextMenuPos]);
+  }, [isContextMenuOpen]);
 
   // ── Pan ───────────────────────────────────────────────────────────────
 
@@ -806,13 +806,13 @@ function CanvasSlot({ def, slot, zoom, isSelected, onAssign, onClear, onSelect, 
       onClick={e => {
         e.stopPropagation();
         onSelect();
-        setContextMenuPos({ x: e.clientX + 8, y: e.clientY + 8 });
+        setIsContextMenuOpen(true);
       }}
       onContextMenu={e => {
         e.preventDefault();
         e.stopPropagation();
         onSelect();
-        setContextMenuPos({ x: e.clientX + 8, y: e.clientY + 8 });
+        setIsContextMenuOpen(true);
       }}
       onDragOver={e => { e.preventDefault(); e.stopPropagation(); setIsDragOver(true); }}
       onDragLeave={() => setIsDragOver(false)}
@@ -820,7 +820,7 @@ function CanvasSlot({ def, slot, zoom, isSelected, onAssign, onClear, onSelect, 
         e.preventDefault();
         e.stopPropagation();
         setIsDragOver(false);
-        setContextMenuPos(null);
+        setIsContextMenuOpen(false);
         const assetId = Number(e.dataTransfer.getData('assetId'));
         const assetPath = e.dataTransfer.getData('assetPath');
         if (assetId && assetPath) onAssign(assetId, assetPath);
@@ -858,11 +858,10 @@ function CanvasSlot({ def, slot, zoom, isSelected, onAssign, onClear, onSelect, 
           </div>
         )}
       </div>
-      {contextMenuPos && (
+      {isContextMenuOpen && (
         <div
           ref={contextMenuRef}
-          className="slot-context-menu"
-          style={{ left: `${contextMenuPos.x}px`, top: `${contextMenuPos.y}px` }}
+          className="slot-context-menu slot-context-menu--dock"
           onClick={e => e.stopPropagation()}
         >
           <button
@@ -870,14 +869,24 @@ function CanvasSlot({ def, slot, zoom, isSelected, onAssign, onClear, onSelect, 
             disabled={!canDelete}
             onClick={() => {
               onClear();
-              setContextMenuPos(null);
+              setIsContextMenuOpen(false);
             }}
           >
-            delete
+            <span className="slot-context-menu-icon">🗑</span>
+            <span className="slot-context-menu-label">Видалити</span>
           </button>
-          <button className="slot-context-menu-item" disabled>масштаб</button>
-          <button className="slot-context-menu-item" disabled>на сторінку</button>
-          <button className="slot-context-menu-item" disabled>копіювати</button>
+          <button className="slot-context-menu-item" disabled>
+            <span className="slot-context-menu-icon">🔍</span>
+            <span className="slot-context-menu-label">Масштаб</span>
+          </button>
+          <button className="slot-context-menu-item" disabled>
+            <span className="slot-context-menu-icon">⬜</span>
+            <span className="slot-context-menu-label">На сторінку</span>
+          </button>
+          <button className="slot-context-menu-item" disabled>
+            <span className="slot-context-menu-icon">⧉</span>
+            <span className="slot-context-menu-label">Копіювати</span>
+          </button>
         </div>
       )}
     </div>

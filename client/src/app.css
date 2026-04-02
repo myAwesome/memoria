@@ -1111,40 +1111,93 @@ body {
 
 .slot-context-menu {
   position: fixed;
-  z-index: 1200;
-  min-width: 170px;
+  z-index: 1400;
+}
+
+.slot-context-menu--dock {
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  width: min(940px, calc(100vw - 28px));
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 6px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(26, 30, 37, 0.96);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(3px);
 }
 
 .slot-context-menu-item {
-  text-align: left;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   border: none;
   background: transparent;
-  color: var(--text-primary);
-  padding: 7px 10px;
-  border-radius: 6px;
-  font-size: 12px;
+  color: #e9edf4;
+  padding: 8px 10px;
+  border-radius: 14px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
   cursor: pointer;
+  flex: 1;
 }
 
 .slot-context-menu-item:hover:not(:disabled) {
-  background: var(--sort-hover-bg);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .slot-context-menu-item:disabled {
-  opacity: 0.45;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
+.slot-context-menu-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  line-height: 1;
+  color: #f2f6fb;
+}
+
+.slot-context-menu-label {
+  text-align: center;
+  white-space: nowrap;
+}
+
 .slot-context-menu-item--danger {
-  color: #dc2626;
+  color: #f6f8fb;
+}
+
+.slot-context-menu-item--danger .slot-context-menu-icon {
+  color: #ff9898;
+}
+
+@media (max-width: 740px) {
+  .slot-context-menu--dock {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px;
+    border-radius: 20px;
+  }
+
+  .slot-context-menu-item {
+    flex: 0 0 calc(50% - 6px);
+    padding: 8px 6px;
+  }
 }
 
 /* ── Panel hint when slot selected ── */
