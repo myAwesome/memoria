@@ -1108,39 +1108,46 @@ body {
 
 /* ── Right Panel ── */
 .editor-right-panel {
-  width: 280px;
+  width: 340px;
   flex-shrink: 0;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   border-left: 1px solid var(--border);
   background: var(--bg-card);
   overflow: hidden;
 }
 
 .right-panel-tabs {
+  width: 76px;
   display: flex;
-  border-bottom: 1px solid var(--border);
+  flex-direction: column;
+  border-left: 1px solid var(--border);
   flex-shrink: 0;
 }
 
 .tab-btn {
-  flex: 1;
-  padding: 10px 0;
+  height: 56px;
+  padding: 0 8px;
   font-size: 13px;
   font-weight: 500;
   background: transparent;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-left: 2px solid transparent;
+  border-bottom: 1px solid var(--border);
   cursor: pointer;
   color: var(--text-secondary);
-  transition: color 0.15s, border-color 0.15s;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 
-.tab-btn:hover { color: var(--text-primary); }
+.tab-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-input);
+}
 
 .tab-btn.active {
   color: var(--accent);
-  border-bottom-color: var(--accent);
+  border-left-color: var(--accent);
+  background: var(--sort-hover-bg);
 }
 
 .right-panel-content {
@@ -1216,7 +1223,7 @@ body {
 
 .asset-thumb-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 4px;
   padding: 0 10px 10px;
   overflow-y: auto;

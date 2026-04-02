@@ -805,6 +805,13 @@ function RightPanel({ spread, selectedSlotId, onSetLayout, onAssignToSelected }:
 
   return (
     <div className="editor-right-panel">
+      <div className="right-panel-content">
+        {tab === 'photos' ? (
+          <PhotosTab selectedSlotId={selectedSlotId} onAssignToSelected={onAssignToSelected} />
+        ) : (
+          <LayoutTab spread={spread} onSetLayout={onSetLayout} />
+        )}
+      </div>
       <div className="right-panel-tabs">
         <button className={`tab-btn${tab === 'photos' ? ' active' : ''}`} onClick={() => setTab('photos')}>
           Фото
@@ -812,13 +819,6 @@ function RightPanel({ spread, selectedSlotId, onSetLayout, onAssignToSelected }:
         <button className={`tab-btn${tab === 'layout' ? ' active' : ''}`} onClick={() => setTab('layout')}>
           Макет
         </button>
-      </div>
-      <div className="right-panel-content">
-        {tab === 'photos' ? (
-          <PhotosTab selectedSlotId={selectedSlotId} onAssignToSelected={onAssignToSelected} />
-        ) : (
-          <LayoutTab spread={spread} onSetLayout={onSetLayout} />
-        )}
       </div>
     </div>
   );
