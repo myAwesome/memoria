@@ -909,6 +909,25 @@ body {
   background: white;
 }
 
+.spread-mini-page-bg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+.spread-mini-page-bg--left {
+  left: 0;
+  right: 50%;
+}
+
+.spread-mini-page-bg--right {
+  left: 50%;
+  right: 0;
+}
+
 .spread-mini-slot {
   position: absolute;
   overflow: hidden;
@@ -1130,6 +1149,8 @@ body {
   padding: 0 8px;
   font-size: 13px;
   font-weight: 500;
+  line-height: 1.15;
+  white-space: normal;
   background: transparent;
   border: none;
   border-left: 2px solid transparent;
@@ -1331,6 +1352,71 @@ body {
 
 .layout-option.active .layout-preview-slot {
   opacity: 0.5;
+}
+
+/* ── Background Tab ── */
+.background-tab {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: 12px 0 0;
+}
+
+.background-target-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 0 10px;
+}
+
+.background-target-btn {
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.background-target-btn:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.background-target-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--sort-hover-bg);
+}
+
+.background-color-row {
+  padding: 0 10px;
+}
+
+.background-color-input {
+  width: 100%;
+  height: 34px;
+  border: 1px solid var(--border-input);
+  border-radius: 8px;
+  background: var(--bg-input);
+  cursor: pointer;
+}
+
+.background-assets-grid {
+  min-height: 0;
+}
+
+.background-thumb-btn {
+  border: 1.5px solid transparent;
+  padding: 0;
+}
+
+.background-thumb-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* ── Slot move & resize handles (visible when selected) ── */

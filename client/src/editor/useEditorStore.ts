@@ -24,6 +24,9 @@ type Action =
   | { type: 'DELETE_SPREAD'; idx: number }
   | { type: 'REORDER_SPREADS'; from: number; to: number }
   | { type: 'SET_LAYOUT'; spreadId: string; side: 'left' | 'right'; layoutId: LayoutId }
+  | { type: 'SET_PAGE_BACKGROUND_COLOR'; spreadId: string; side: 'left' | 'right'; color: string }
+  | { type: 'SET_PAGE_BACKGROUND_IMAGE'; spreadId: string; side: 'left' | 'right'; assetId: number; assetPath: string }
+  | { type: 'CLEAR_PAGE_BACKGROUND_IMAGE'; spreadId: string; side: 'left' | 'right' }
   | { type: 'ASSIGN_ASSET'; spreadId: string; slotId: string; assetId: number; assetPath: string }
   | { type: 'CLEAR_SLOT'; spreadId: string; slotId: string }
   | { type: 'UPDATE_SLOT_TRANSFORM'; spreadId: string; slotId: string; offsetX: number; offsetY: number; scale: number }
@@ -66,6 +69,39 @@ function applyAction(present: ProjectData, action: Action): ProjectData {
           return existing ?? { id: slotId };
         });
         return { ...s, [action.side]: { layoutId: action.layoutId, slots: newSlots } };
+      });
+      return { ...present, spreads };
+    }
+
+    case 'SET_PAGE_BACKGROUND_COLOR': {
+      const spreads = present.spreads.map(s => {
+        if (s.id !== action.spreadId) return s;
+        const page = s[action.side];
+        return { ...s, [action.side]: { ...page, bgColor: action.color } };
+      });
+      return { ...present, spreads };
+    }
+
+    case 'SET_PAGE_BACKGROUND_IMAGE': {
+      const spreads = present.spreads.map(s => {
+        if (s.id !== action.spreadId) return s;
+        const page = s[action.side];
+        return {
+          ...s,
+          [action.side]: { ...page, bgAssetId: action.assetId, bgAssetPath: action.assetPath },
+        };
+      });
+      return { ...present, spreads };
+    }
+
+    case 'CLEAR_PAGE_BACKGROUND_IMAGE': {
+      const spreads = present.spreads.map(s => {
+        if (s.id !== action.spreadId) return s;
+        const page = s[action.side];
+        return {
+          ...s,
+          [action.side]: { ...page, bgAssetId: undefined, bgAssetPath: undefined },
+        };
       });
       return { ...present, spreads };
     }
@@ -174,6 +210,12 @@ export function useEditorStore(initial: ProjectData) {
     reorderSpreads: useCallback((from: number, to: number) => dispatch({ type: 'REORDER_SPREADS', from, to }), []),
     setLayout:    useCallback((spreadId: string, side: 'left' | 'right', layoutId: LayoutId) =>
       dispatch({ type: 'SET_LAYOUT', spreadId, side, layoutId }), []),
+    setPageBackgroundColor: useCallback((spreadId: string, side: 'left' | 'right', color: string) =>
+      dispatch({ type: 'SET_PAGE_BACKGROUND_COLOR', spreadId, side, color }), []),
+    setPageBackgroundImage: useCallback((spreadId: string, side: 'left' | 'right', assetId: number, assetPath: string) =>
+      dispatch({ type: 'SET_PAGE_BACKGROUND_IMAGE', spreadId, side, assetId, assetPath }), []),
+    clearPageBackgroundImage: useCallback((spreadId: string, side: 'left' | 'right') =>
+      dispatch({ type: 'CLEAR_PAGE_BACKGROUND_IMAGE', spreadId, side }), []),
     assignAsset:  useCallback((spreadId: string, slotId: string, assetId: number, assetPath: string) =>
       dispatch({ type: 'ASSIGN_ASSET', spreadId, slotId, assetId, assetPath }), []),
     clearSlot:    useCallback((spreadId: string, slotId: string) =>

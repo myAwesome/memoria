@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import type { ProjectData, Spread, LayoutId, Slot, SlotDef } from '../types/editor';
+import type { ProjectData, Spread, LayoutId, Slot, SlotDef, PageData } from '../types/editor';
 import type { Asset } from '../types/asset';
 import { BOOK_SIZES } from '../types/project';
 import { getProject, updateProject } from '../api/project';
@@ -102,6 +102,19 @@ const SAVE_LABELS: Record<SaveStatus, string> = {
   pending: 'Є зміни…',
   error:   'Помилка збереження',
 };
+
+function getPageBackgroundStyle(page: PageData) {
+  if (page.bgAssetPath) {
+    return {
+      backgroundColor: page.bgColor ?? '#ffffff',
+      backgroundImage: `url(${page.bgAssetPath})`,
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat',
+      backgroundSize: 'cover',
+    } as const;
+  }
+  return { backgroundColor: page.bgColor ?? '#ffffff' } as const;
+}
 
 function EditorInner({ projectId, projectName, initialData, initialCoverAssetPath, onBack }: EditorInnerProps) {
   const store = useEditorStore(initialData);
@@ -249,6 +262,15 @@ function EditorInner({ projectId, projectName, initialData, initialCoverAssetPat
             onSetLayout={(side, layoutId) =>
               currentSpread && store.setLayout(currentSpread.id, side, layoutId)
             }
+            onSetPageBackgroundColor={(side, color) =>
+              currentSpread && store.setPageBackgroundColor(currentSpread.id, side, color)
+            }
+            onSetPageBackgroundImage={(side, assetId, assetPath) =>
+              currentSpread && store.setPageBackgroundImage(currentSpread.id, side, assetId, assetPath)
+            }
+            onClearPageBackgroundImage={(side) =>
+              currentSpread && store.clearPageBackgroundImage(currentSpread.id, side)
+            }
             onAssignToSelected={(assetId, assetPath) => {
               if (selectedSlotId && currentSpread) {
                 store.assignAsset(currentSpread.id, selectedSlotId, assetId, assetPath);
@@ -351,6 +373,8 @@ function SpreadMiniature({ spread, aspectRatio }: { spread: Spread; aspectRatio:
   const rightLayout = getLayout(spread.right.layoutId);
   return (
     <div className="spread-mini" style={{ aspectRatio: String(aspectRatio * 2) }}>
+      <div className="spread-mini-page-bg spread-mini-page-bg--left" style={getPageBackgroundStyle(spread.left)} />
+      <div className="spread-mini-page-bg spread-mini-page-bg--right" style={getPageBackgroundStyle(spread.right)} />
       {/* Left page slots – positions are halved to fit left side of spread */}
       {leftLayout.slotDefs.map(sd => {
         const slotId = `l:${sd.id}`;
@@ -432,7 +456,7 @@ function CanvasArea({ spread, bookSize, zoom, selectedSlotId, onSelectSlot, onAs
           }}
         >
           {/* Left page */}
-          <div className="canvas-page-half canvas-page-left">
+          <div className="canvas-page-half canvas-page-left" style={getPageBackgroundStyle(spread.left)}>
             {leftLayout.slotDefs.map(sd => {
               const slotId = `l:${sd.id}`;
               const slot = spread.left.slots.find(s => s.id === slotId) ?? { id: slotId };
@@ -455,7 +479,7 @@ function CanvasArea({ spread, bookSize, zoom, selectedSlotId, onSelectSlot, onAs
           <div className="canvas-spread-divider" />
 
           {/* Right page */}
-          <div className="canvas-page-half canvas-page-right">
+          <div className="canvas-page-half canvas-page-right" style={getPageBackgroundStyle(spread.right)}>
             {rightLayout.slotDefs.map(sd => {
               const slotId = `r:${sd.id}`;
               const slot = spread.right.slots.find(s => s.id === slotId) ?? { id: slotId };
@@ -797,19 +821,37 @@ interface RightPanelProps {
   spread: Spread | null;
   selectedSlotId: string | null;
   onSetLayout: (side: 'left' | 'right', layoutId: LayoutId) => void;
+  onSetPageBackgroundColor: (side: 'left' | 'right', color: string) => void;
+  onSetPageBackgroundImage: (side: 'left' | 'right', assetId: number, assetPath: string) => void;
+  onClearPageBackgroundImage: (side: 'left' | 'right') => void;
   onAssignToSelected: (assetId: number, assetPath: string) => void;
 }
 
-function RightPanel({ spread, selectedSlotId, onSetLayout, onAssignToSelected }: RightPanelProps) {
-  const [tab, setTab] = useState<'photos' | 'layout'>('photos');
+function RightPanel({
+  spread,
+  selectedSlotId,
+  onSetLayout,
+  onSetPageBackgroundColor,
+  onSetPageBackgroundImage,
+  onClearPageBackgroundImage,
+  onAssignToSelected,
+}: RightPanelProps) {
+  const [tab, setTab] = useState<'photos' | 'layout' | 'background'>('photos');
 
   return (
     <div className="editor-right-panel">
       <div className="right-panel-content">
         {tab === 'photos' ? (
           <PhotosTab selectedSlotId={selectedSlotId} onAssignToSelected={onAssignToSelected} />
-        ) : (
+        ) : tab === 'layout' ? (
           <LayoutTab spread={spread} onSetLayout={onSetLayout} />
+        ) : (
+          <PageBackgroundTab
+            spread={spread}
+            onSetPageBackgroundColor={onSetPageBackgroundColor}
+            onSetPageBackgroundImage={onSetPageBackgroundImage}
+            onClearPageBackgroundImage={onClearPageBackgroundImage}
+          />
         )}
       </div>
       <div className="right-panel-tabs">
@@ -818,6 +860,9 @@ function RightPanel({ spread, selectedSlotId, onSetLayout, onAssignToSelected }:
         </button>
         <button className={`tab-btn${tab === 'layout' ? ' active' : ''}`} onClick={() => setTab('layout')}>
           Макет
+        </button>
+        <button className={`tab-btn${tab === 'background' ? ' active' : ''}`} onClick={() => setTab('background')}>
+          Page background
         </button>
       </div>
     </div>
@@ -951,6 +996,126 @@ function PhotosTab({ selectedSlotId, onAssignToSelected }: PhotosTabProps) {
           <div className="assets-empty">Немає фото</div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── Page Background Tab ────────────────────────────────────────────────
+
+interface PageBackgroundTabProps {
+  spread: Spread | null;
+  onSetPageBackgroundColor: (side: 'left' | 'right', color: string) => void;
+  onSetPageBackgroundImage: (side: 'left' | 'right', assetId: number, assetPath: string) => void;
+  onClearPageBackgroundImage: (side: 'left' | 'right') => void;
+}
+
+function PageBackgroundTab({
+  spread,
+  onSetPageBackgroundColor,
+  onSetPageBackgroundImage,
+  onClearPageBackgroundImage,
+}: PageBackgroundTabProps) {
+  const [targetSide, setTargetSide] = useState<'left' | 'right' | 'both'>('both');
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [search, setSearch] = useState('');
+
+  const loadAssets = useCallback(async (q: string) => {
+    try {
+      const filters: Record<string, string> = q ? { original_name: q } : {};
+      const res = await listAsset(1, 100, 'id', 'desc', filters);
+      setAssets(res.data);
+    } catch { /* silent */ }
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => loadAssets(search), 300);
+    return () => clearTimeout(t);
+  }, [search, loadAssets]);
+
+  function applyToSelectedSides(fn: (side: 'left' | 'right') => void) {
+    if (targetSide === 'both') {
+      fn('left');
+      fn('right');
+      return;
+    }
+    fn(targetSide);
+  }
+
+  const colorPreviewSide = targetSide === 'right' ? 'right' : 'left';
+  const currentColor = spread?.[colorPreviewSide].bgColor ?? '#ffffff';
+
+  return (
+    <div className="background-tab">
+      <p className="panel-section-label">Сторінка</p>
+      <div className="background-target-row">
+        <button
+          className={`background-target-btn${targetSide === 'left' ? ' active' : ''}`}
+          onClick={() => setTargetSide('left')}
+        >
+          Ліва
+        </button>
+        <button
+          className={`background-target-btn${targetSide === 'right' ? ' active' : ''}`}
+          onClick={() => setTargetSide('right')}
+        >
+          Права
+        </button>
+        <button
+          className={`background-target-btn${targetSide === 'both' ? ' active' : ''}`}
+          onClick={() => setTargetSide('both')}
+        >
+          Обидві
+        </button>
+      </div>
+
+      <p className="panel-section-label" style={{ marginTop: '14px' }}>Колір</p>
+      <div className="background-color-row">
+        <input
+          className="background-color-input"
+          type="color"
+          value={currentColor}
+          disabled={!spread}
+          onChange={e => applyToSelectedSides(side => onSetPageBackgroundColor(side, e.target.value))}
+        />
+      </div>
+
+      <p className="panel-section-label" style={{ marginTop: '14px' }}>Фото для фону</p>
+      <div className="photos-search-row">
+        <input
+          className="form-input"
+          type="text"
+          placeholder="Пошук…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+      </div>
+      <div className="asset-thumb-grid background-assets-grid">
+        {assets.map(asset => (
+          <button
+            key={asset.id}
+            className="asset-thumb background-thumb-btn"
+            disabled={!spread || !asset.path}
+            onClick={() => {
+              if (asset.path) applyToSelectedSides(side => onSetPageBackgroundImage(side, asset.id, asset.path!));
+            }}
+            title={asset.original_name ?? asset.path}
+          >
+            <img src={asset.path} alt={asset.original_name} draggable={false} />
+          </button>
+        ))}
+        {assets.length === 0 && (
+          <div className="assets-empty">Немає фото</div>
+        )}
+      </div>
+
+      <button
+        className="btn btn-sm"
+        style={{ margin: '8px 10px 10px' }}
+        onClick={() => applyToSelectedSides(side => onClearPageBackgroundImage(side))}
+        disabled={!spread}
+      >
+        Очистити фонове фото
+      </button>
     </div>
   );
 }
