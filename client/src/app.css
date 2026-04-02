@@ -963,6 +963,11 @@ body {
   justify-content: center;
 }
 
+.canvas-page-zoom-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
 .canvas-page {
   position: relative;
   background: white;

@@ -444,59 +444,73 @@ function CanvasArea({ spread, bookSize, zoom, selectedSlotId, onSelectSlot, onAs
 
   const leftLayout  = getLayout(spread.left.layoutId);
   const rightLayout = getLayout(spread.right.layoutId);
+  const baseSpreadWidth = 1200;
+  const spreadAspectRatio = (bookSize.width * 2) / bookSize.height;
+  const baseSpreadHeight = baseSpreadWidth / spreadAspectRatio;
+  const scaledSpreadWidth = baseSpreadWidth * zoom;
+  const scaledSpreadHeight = baseSpreadHeight * zoom;
 
   return (
     <div className="canvas-area" onClick={() => onSelectSlot(null)}>
       <div className="canvas-scroll-inner">
         <div
-          className="canvas-page"
-          style={{
-            width: `${1200 * zoom}px`,
-            aspectRatio: `${bookSize.width * 2} / ${bookSize.height}`,
-          }}
+          className="canvas-page-zoom-wrap"
+          style={{ width: `${scaledSpreadWidth}px`, height: `${scaledSpreadHeight}px` }}
         >
-          {/* Left page */}
-          <div className="canvas-page-half canvas-page-left" style={getPageBackgroundStyle(spread.left)}>
-            {leftLayout.slotDefs.map(sd => {
-              const slotId = `l:${sd.id}`;
-              const slot = spread.left.slots.find(s => s.id === slotId) ?? { id: slotId };
-              return (
-                <CanvasSlot
-                  key={slotId}
-                  def={sd}
-                  slot={slot}
-                  isSelected={selectedSlotId === slotId}
-                  onAssign={(assetId, assetPath) => onAssignAsset(slotId, assetId, assetPath)}
-                  onClear={() => onClearSlot(slotId)}
-                  onSelect={() => onSelectSlot(slotId)}
-                  onUpdateTransform={(offsetX, offsetY, scale) => onUpdateTransform(slotId, offsetX, offsetY, scale)}
-                  onUpdateGeometry={(left, top, width, height) => onUpdateGeometry(slotId, left, top, width, height)}
-                />
-              );
-            })}
-          </div>
+          <div
+            className="canvas-page"
+            style={{
+              width: `${baseSpreadWidth}px`,
+              aspectRatio: `${bookSize.width * 2} / ${bookSize.height}`,
+              transform: `scale(${zoom})`,
+              transformOrigin: 'top left',
+            }}
+          >
+            {/* Left page */}
+            <div className="canvas-page-half canvas-page-left" style={getPageBackgroundStyle(spread.left)}>
+              {leftLayout.slotDefs.map(sd => {
+                const slotId = `l:${sd.id}`;
+                const slot = spread.left.slots.find(s => s.id === slotId) ?? { id: slotId };
+                return (
+                  <CanvasSlot
+                    key={slotId}
+                    def={sd}
+                    slot={slot}
+                    zoom={zoom}
+                    isSelected={selectedSlotId === slotId}
+                    onAssign={(assetId, assetPath) => onAssignAsset(slotId, assetId, assetPath)}
+                    onClear={() => onClearSlot(slotId)}
+                    onSelect={() => onSelectSlot(slotId)}
+                    onUpdateTransform={(offsetX, offsetY, scale) => onUpdateTransform(slotId, offsetX, offsetY, scale)}
+                    onUpdateGeometry={(left, top, width, height) => onUpdateGeometry(slotId, left, top, width, height)}
+                  />
+                );
+              })}
+            </div>
 
-          <div className="canvas-spread-divider" />
+            <div className="canvas-spread-divider" />
 
-          {/* Right page */}
-          <div className="canvas-page-half canvas-page-right" style={getPageBackgroundStyle(spread.right)}>
-            {rightLayout.slotDefs.map(sd => {
-              const slotId = `r:${sd.id}`;
-              const slot = spread.right.slots.find(s => s.id === slotId) ?? { id: slotId };
-              return (
-                <CanvasSlot
-                  key={slotId}
-                  def={sd}
-                  slot={slot}
-                  isSelected={selectedSlotId === slotId}
-                  onAssign={(assetId, assetPath) => onAssignAsset(slotId, assetId, assetPath)}
-                  onClear={() => onClearSlot(slotId)}
-                  onSelect={() => onSelectSlot(slotId)}
-                  onUpdateTransform={(offsetX, offsetY, scale) => onUpdateTransform(slotId, offsetX, offsetY, scale)}
-                  onUpdateGeometry={(left, top, width, height) => onUpdateGeometry(slotId, left, top, width, height)}
-                />
-              );
-            })}
+            {/* Right page */}
+            <div className="canvas-page-half canvas-page-right" style={getPageBackgroundStyle(spread.right)}>
+              {rightLayout.slotDefs.map(sd => {
+                const slotId = `r:${sd.id}`;
+                const slot = spread.right.slots.find(s => s.id === slotId) ?? { id: slotId };
+                return (
+                  <CanvasSlot
+                    key={slotId}
+                    def={sd}
+                    slot={slot}
+                    zoom={zoom}
+                    isSelected={selectedSlotId === slotId}
+                    onAssign={(assetId, assetPath) => onAssignAsset(slotId, assetId, assetPath)}
+                    onClear={() => onClearSlot(slotId)}
+                    onSelect={() => onSelectSlot(slotId)}
+                    onUpdateTransform={(offsetX, offsetY, scale) => onUpdateTransform(slotId, offsetX, offsetY, scale)}
+                    onUpdateGeometry={(left, top, width, height) => onUpdateGeometry(slotId, left, top, width, height)}
+                  />
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
@@ -509,6 +523,7 @@ type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
 interface CanvasSlotProps {
   def: SlotDef;
   slot: Slot;
+  zoom: number;
   isSelected: boolean;
   onAssign: (assetId: number, assetPath: string) => void;
   onClear: () => void;
@@ -517,7 +532,7 @@ interface CanvasSlotProps {
   onUpdateGeometry: (left: number, top: number, width: number, height: number) => void;
 }
 
-function CanvasSlot({ def, slot, isSelected, onAssign, onClear, onSelect, onUpdateTransform, onUpdateGeometry }: CanvasSlotProps) {
+function CanvasSlot({ def, slot, zoom, isSelected, onAssign, onClear, onSelect, onUpdateTransform, onUpdateGeometry }: CanvasSlotProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [liveOffset, setLiveOffset] = useState<{ x: number; y: number } | null>(null);
   const [liveGeometry, setLiveGeometry] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
@@ -629,15 +644,15 @@ function CanvasSlot({ def, slot, isSelected, onAssign, onClear, onSelect, onUpda
   function handlePanMove(e: MouseEvent) {
     if (!panRef.current) return;
     const { startMx, startMy, startOx, startOy } = panRef.current;
-    const raw = { x: startOx + (e.clientX - startMx), y: startOy + (e.clientY - startMy) };
+    const raw = { x: startOx + (e.clientX - startMx) / zoom, y: startOy + (e.clientY - startMy) / zoom };
     setLiveOffset(clampOffset(raw.x, raw.y, currentScale));
   }
 
   function handlePanEnd(e: MouseEvent) {
     if (!panRef.current) return;
     const { startMx, startMy, startOx, startOy } = panRef.current;
-    const rawX = startOx + (e.clientX - startMx);
-    const rawY = startOy + (e.clientY - startMy);
+    const rawX = startOx + (e.clientX - startMx) / zoom;
+    const rawY = startOy + (e.clientY - startMy) / zoom;
     const { x: finalX, y: finalY } = clampOffset(rawX, rawY, currentScale);
     panRef.current = null;
     setLiveOffset(null);
