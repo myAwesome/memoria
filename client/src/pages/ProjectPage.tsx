@@ -64,7 +64,7 @@ export default function ProjectPage() {
   }
 
   async function handleDelete(id: number, name: string) {
-    if (!confirm(`Видалити "${name}"?`)) return;
+    if (!confirm(`Delete "${name}"?`)) return;
     try { await deleteProject(id); load(page); } catch (e) { console.error(e); }
   }
 
@@ -76,23 +76,23 @@ export default function ProjectPage() {
 
   function formatDate(iso?: string) {
     if (!iso) return '';
-    return new Date(iso).toLocaleDateString('uk-UA', { day: '2-digit', month: 'short', year: 'numeric' });
+    return new Date(iso).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
   return (
     <div>
       <div className="page-header">
-        <h1>Фотокниги</h1>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Нова фотокнига</button>
+        <h1>Photo Books</h1>
+        <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ New Photo Book</button>
       </div>
 
       {editItem && (
         <div className="modal-overlay" onClick={() => setEditItem(null)}>
           <div className="modal-card" onClick={e => e.stopPropagation()}>
-            <h2 className="modal-title">Редагувати фотокнигу</h2>
+            <h2 className="modal-title">Edit Photo Book</h2>
             <form onSubmit={handleSaveEdit}>
               <div className="form-group">
-                <label className="form-label">Назва</label>
+                <label className="form-label">Name</label>
                 <input
                   className="form-input"
                   type="text"
@@ -103,9 +103,9 @@ export default function ProjectPage() {
               </div>
               <div className="modal-actions">
                 <button type="submit" className="btn btn-primary" disabled={saving || !editName.trim()}>
-                  {saving ? 'Збереження…' : 'Зберегти'}
+                  {saving ? 'Saving…' : 'Save'}
                 </button>
-                <button type="button" className="btn" onClick={() => setEditItem(null)}>Скасувати</button>
+                <button type="button" className="btn" onClick={() => setEditItem(null)}>Cancel</button>
               </div>
             </form>
           </div>
@@ -115,21 +115,21 @@ export default function ProjectPage() {
       {showModal && (
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal-card" onClick={e => e.stopPropagation()}>
-            <h2 className="modal-title">Нова фотокнига</h2>
+            <h2 className="modal-title">New Photo Book</h2>
             <form onSubmit={handleCreate}>
               <div className="form-group">
-                <label className="form-label">Назва</label>
+                <label className="form-label">Name</label>
                 <input
                   className="form-input"
                   type="text"
                   autoFocus
-                  placeholder="Введіть назву..."
+                  placeholder="Enter a name..."
                   value={newName}
                   onChange={e => setNewName(e.target.value)}
                 />
               </div>
               <div className="form-group" style={{ marginTop: 20 }}>
-                <label className="form-label">Розмір</label>
+                <label className="form-label">Size</label>
                 <div className="size-grid">
                   {BOOK_SIZES.map(s => (
                     <label key={s.id} className={`size-option${newSize === s.id ? ' selected' : ''}`}>
@@ -142,16 +142,16 @@ export default function ProjectPage() {
                       />
                       <div className="size-thumb" style={{ aspectRatio: `${s.width}/${s.height}` }} />
                       <span className="size-name">{s.label}</span>
-                      <span className="size-dim">{s.width}×{s.height}мм</span>
+                      <span className="size-dim">{s.width}×{s.height}mm</span>
                     </label>
                   ))}
                 </div>
               </div>
               <div className="modal-actions">
                 <button type="submit" className="btn btn-primary" disabled={creating || !newName.trim()}>
-                  {creating ? 'Створення…' : 'Створити'}
+                  {creating ? 'Creating…' : 'Create'}
                 </button>
-                <button type="button" className="btn" onClick={closeModal}>Скасувати</button>
+                <button type="button" className="btn" onClick={closeModal}>Cancel</button>
               </div>
             </form>
           </div>
@@ -161,7 +161,7 @@ export default function ProjectPage() {
       {items.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">📖</div>
-          <p>Немає фотокниг. Створіть першу!</p>
+          <p>No photo books yet. Create your first one.</p>
         </div>
       ) : (
         <div className="book-grid">
@@ -193,9 +193,9 @@ export default function ProjectPage() {
 
       {total > limit && (
         <div className="pagination">
-          <button className="btn" onClick={() => load(page - 1)} disabled={page <= 1}>← Назад</button>
+          <button className="btn" onClick={() => load(page - 1)} disabled={page <= 1}>← Previous</button>
           <span>{page} / {Math.ceil(total / limit)} ({total})</span>
-          <button className="btn" onClick={() => load(page + 1)} disabled={page * limit >= total}>Далі →</button>
+          <button className="btn" onClick={() => load(page + 1)} disabled={page * limit >= total}>Next →</button>
         </div>
       )}
     </div>

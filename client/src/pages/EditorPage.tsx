@@ -63,15 +63,15 @@ export default function EditorPage() {
           } catch { /* ignore */ }
         }
       })
-      .catch(() => setLoadError('Не вдалося завантажити проєкт'))
+      .catch(() => setLoadError('Failed to load project'))
       .finally(() => setLoading(false));
   }, [id]);
 
   if (loading) {
-    return <div className="editor-loading"><div className="editor-loading-text">Завантаження…</div></div>;
+    return <div className="editor-loading"><div className="editor-loading-text">Loading…</div></div>;
   }
   if (loadError || !initialData || !id) {
-    return <div className="editor-loading"><div className="editor-loading-text">{loadError || 'Помилка'}</div></div>;
+    return <div className="editor-loading"><div className="editor-loading-text">{loadError || 'Error'}</div></div>;
   }
 
   return (
@@ -97,10 +97,10 @@ interface EditorInnerProps {
 
 type SaveStatus = 'saved' | 'saving' | 'pending' | 'error';
 const SAVE_LABELS: Record<SaveStatus, string> = {
-  saved:   'Збережено',
-  saving:  'Зберігання…',
-  pending: 'Є зміни…',
-  error:   'Помилка збереження',
+  saved:   'Saved',
+  saving:  'Saving…',
+  pending: 'Unsaved changes…',
+  error:   'Save error',
 };
 
 function getPageBackgroundStyle(page: PageData) {
@@ -203,7 +203,7 @@ function EditorInner({ projectId, projectName, initialData, initialCoverAssetPat
     <div className="editor-layout">
       <div className="editor-toolbar">
         <div className="toolbar-left">
-          <button className="btn btn-sm" onClick={onBack}>← Назад</button>
+          <button className="btn btn-sm" onClick={onBack}>← Back</button>
           <span className="editor-project-name">{projectName}</span>
           <span className={`save-status save-status--${saveStatus}`}>{SAVE_LABELS[saveStatus]}</span>
         </div>
@@ -215,7 +215,7 @@ function EditorInner({ projectId, projectName, initialData, initialCoverAssetPat
                 className="editor-action-btn editor-action-btn--danger"
                 onClick={handleDeleteSpread}
                 disabled={safeIdx < 0}
-                title="Видалити поточний розворот"
+                title="Delete current spread"
               >
                 🗑
               </button>
@@ -224,7 +224,7 @@ function EditorInner({ projectId, projectName, initialData, initialCoverAssetPat
                 onClick={() => setIsDeleteMenuOpen(v => !v)}
                 disabled={safeIdx < 0}
                 aria-expanded={isDeleteMenuOpen}
-                title="Дії видалення"
+                title="Delete actions"
               >
                 ▾
               </button>
@@ -232,14 +232,14 @@ function EditorInner({ projectId, projectName, initialData, initialCoverAssetPat
             {isDeleteMenuOpen && (
               <div className="editor-action-dropdown">
                 <button className="editor-action-dropdown-item" onClick={handleDeleteSpread}>
-                  Видалити розворот
+                  Delete spread
                 </button>
               </div>
             )}
           </div>
           <div className="editor-action-group">
-            <button className="editor-action-btn" onClick={store.undo} disabled={!store.canUndo} title="Відмінити (Ctrl+Z)">↩</button>
-            <button className="editor-action-btn" onClick={store.redo} disabled={!store.canRedo} title="Повторити (Ctrl+Y)">↪</button>
+            <button className="editor-action-btn" onClick={store.undo} disabled={!store.canUndo} title="Undo (Ctrl+Z)">↩</button>
+            <button className="editor-action-btn" onClick={store.redo} disabled={!store.canRedo} title="Redo (Ctrl+Y)">↪</button>
           </div>
         </div>
 
@@ -247,25 +247,25 @@ function EditorInner({ projectId, projectName, initialData, initialCoverAssetPat
           <button
             className={`btn btn-sm editor-toggle-btn${isLeftPanelCollapsed ? ' is-collapsed' : ''}`}
             onClick={() => setIsLeftPanelCollapsed(value => !value)}
-            title={isLeftPanelCollapsed ? 'Показати лівий сайдбар' : 'Згорнути лівий сайдбар'}
+            title={isLeftPanelCollapsed ? 'Show left sidebar' : 'Collapse left sidebar'}
             aria-pressed={isLeftPanelCollapsed}
           >
-            {isLeftPanelCollapsed ? '▸ Лівий сайдбар' : '◂ Лівий сайдбар'}
+            {isLeftPanelCollapsed ? '▸ Left sidebar' : '◂ Left sidebar'}
           </button>
           <button
             className={`btn btn-sm editor-toggle-btn${isRightPanelCollapsed ? ' is-collapsed' : ''}`}
             onClick={() => setIsRightPanelCollapsed(value => !value)}
-            title={isRightPanelCollapsed ? 'Показати правий сайдбар' : 'Згорнути правий сайдбар'}
+            title={isRightPanelCollapsed ? 'Show right sidebar' : 'Collapse right sidebar'}
             aria-pressed={isRightPanelCollapsed}
           >
-            {isRightPanelCollapsed ? 'Права панель ◂' : 'Права панель ▸'}
+            {isRightPanelCollapsed ? 'Right panel ◂' : 'Right panel ▸'}
           </button>
           <div className="toolbar-divider" />
           <span className="zoom-label">{Math.round(zoom * 100)}%</span>
           <button
             className="btn btn-sm"
             onClick={() => setZoom(z => Math.min(2, +(z + 0.25).toFixed(2)))}
-            title="Збільшити"
+            title="Zoom in"
             disabled={zoom >= 2}
           >
             +
@@ -375,7 +375,7 @@ function LeftPanel({ spreads, currentIdx, bookSize, onSelect, onAdd, onReorder, 
   return (
     <div className="editor-left-panel">
       <div className="cover-section">
-        <div className="cover-section-label">Обкладинка</div>
+        <div className="cover-section-label">Cover</div>
         <div
           className={`cover-slot${coverDragOver ? ' drag-over' : ''}`}
           onDragOver={e => { e.preventDefault(); e.stopPropagation(); setCoverDragOver(true); }}
@@ -384,8 +384,8 @@ function LeftPanel({ spreads, currentIdx, bookSize, onSelect, onAdd, onReorder, 
         >
           {coverAssetPath ? (
             <>
-              <img src={coverAssetPath} alt="Обкладинка" />
-              <button className="cover-clear-btn" onClick={e => { e.stopPropagation(); onClearCover(); }} title="Видалити обкладинку">×</button>
+              <img src={coverAssetPath} alt="Cover" />
+              <button className="cover-clear-btn" onClick={e => { e.stopPropagation(); onClearCover(); }} title="Remove cover">×</button>
             </>
           ) : (
             <span className="cover-slot-empty-icon">+</span>
@@ -393,8 +393,8 @@ function LeftPanel({ spreads, currentIdx, bookSize, onSelect, onAdd, onReorder, 
         </div>
       </div>
       <div className="left-panel-header">
-        <span className="panel-title">Розвороти</span>
-        <button className="btn btn-sm btn-primary" onClick={onAdd} title="Додати розворот">+</button>
+        <span className="panel-title">Spreads</span>
+        <button className="btn btn-sm btn-primary" onClick={onAdd} title="Add spread">+</button>
       </div>
       <div className="spread-list">
         {spreads.map((spread, idx) => (
@@ -420,7 +420,7 @@ function LeftPanel({ spreads, currentIdx, bookSize, onSelect, onAdd, onReorder, 
           </div>
         ))}
         {spreads.length === 0 && (
-          <div className="spread-list-empty">Немає розворотів.<br />Натисніть + щоб додати.</div>
+          <div className="spread-list-empty">No spreads yet.<br />Click + to add one.</div>
         )}
       </div>
     </div>
@@ -517,7 +517,7 @@ function CanvasArea({
       <div className="canvas-area">
         <div className="canvas-empty">
           <div className="canvas-empty-icon">📄</div>
-          <p>Немає розворотів.<br />Натисніть + у лівій панелі.</p>
+          <p>No spreads yet.<br />Click + in the left panel.</p>
         </div>
       </div>
     );
@@ -598,11 +598,11 @@ function CanvasArea({
         </div>
       </div>
       <div className="canvas-spread-pager">
-        <button className="canvas-spread-pager-btn" onClick={onPrevSpread} disabled={!canGoPrev} aria-label="Попередній розворот">
+        <button className="canvas-spread-pager-btn" onClick={onPrevSpread} disabled={!canGoPrev} aria-label="Previous spread">
           ←
         </button>
         <div className="canvas-spread-pager-label">{currentPageStart} - {currentPageEnd}</div>
-        <button className="canvas-spread-pager-btn" onClick={onNextSpread} disabled={!canGoNext} aria-label="Наступний розворот">
+        <button className="canvas-spread-pager-btn" onClick={onNextSpread} disabled={!canGoNext} aria-label="Next spread">
           →
         </button>
       </div>
@@ -919,7 +919,7 @@ function CanvasSlot({ def, slot, zoom, isSelected, onAssign, onClear, onSelect, 
       }}
     >
       {isSelected && (
-        <div className="slot-move-handle" onMouseDown={handleMoveStart} title="Перемістити" />
+        <div className="slot-move-handle" onMouseDown={handleMoveStart} title="Move" />
       )}
       {isSelected && RESIZE_HANDLES.map(h => (
         <div
@@ -965,19 +965,19 @@ function CanvasSlot({ def, slot, zoom, isSelected, onAssign, onClear, onSelect, 
             }}
           >
             <span className="slot-context-menu-icon">🗑</span>
-            <span className="slot-context-menu-label">Видалити</span>
+            <span className="slot-context-menu-label">Delete</span>
           </button>
           <button className="slot-context-menu-item" disabled>
             <span className="slot-context-menu-icon">🔍</span>
-            <span className="slot-context-menu-label">Масштаб</span>
+            <span className="slot-context-menu-label">Scale</span>
           </button>
           <button className="slot-context-menu-item" disabled>
             <span className="slot-context-menu-icon">⬜</span>
-            <span className="slot-context-menu-label">На сторінку</span>
+            <span className="slot-context-menu-label">Fit to page</span>
           </button>
           <button className="slot-context-menu-item" disabled>
             <span className="slot-context-menu-icon">⧉</span>
-            <span className="slot-context-menu-label">Копіювати</span>
+            <span className="slot-context-menu-label">Copy</span>
           </button>
         </div>
       )}
@@ -1026,10 +1026,10 @@ function RightPanel({
       </div>
       <div className="right-panel-tabs">
         <button className={`tab-btn${tab === 'photos' ? ' active' : ''}`} onClick={() => setTab('photos')}>
-          Фото
+          Photos
         </button>
         <button className={`tab-btn${tab === 'layout' ? ' active' : ''}`} onClick={() => setTab('layout')}>
-          Макет
+          Layout
         </button>
         <button className={`tab-btn${tab === 'background' ? ' active' : ''}`} onClick={() => setTab('background')}>
           Page background
@@ -1114,7 +1114,7 @@ function PhotosTab({ selectedSlotId, onAssignToSelected }: PhotosTabProps) {
             <span className="upload-progress-label">{uploadProgress}%</span>
           </div>
         ) : (
-          <span className="upload-zone-text">Перетягніть фото або натисніть для завантаження</span>
+          <span className="upload-zone-text">Drag photos here or click to upload</span>
         )}
       </div>
       <input
@@ -1133,13 +1133,13 @@ function PhotosTab({ selectedSlotId, onAssignToSelected }: PhotosTabProps) {
         <input
           className="form-input"
           type="text"
-          placeholder="Пошук…"
+          placeholder="Search…"
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
       </div>
       {selectedSlotId && (
-        <div className="slot-assign-hint">Клікніть фото, щоб вставити у слот</div>
+        <div className="slot-assign-hint">Click a photo to insert into the slot</div>
       )}
       <div className="asset-thumb-grid">
         {assets.map(asset => (
@@ -1163,7 +1163,7 @@ function PhotosTab({ selectedSlotId, onAssignToSelected }: PhotosTabProps) {
           </div>
         ))}
         {assets.length === 0 && !uploading && (
-          <div className="assets-empty">Немає фото</div>
+          <div className="assets-empty">No photos</div>
         )}
       </div>
     </div>
@@ -1216,29 +1216,29 @@ function PageBackgroundTab({
 
   return (
     <div className="background-tab">
-      <p className="panel-section-label">Сторінка</p>
+      <p className="panel-section-label">Page</p>
       <div className="background-target-row">
         <button
           className={`background-target-btn${targetSide === 'left' ? ' active' : ''}`}
           onClick={() => setTargetSide('left')}
         >
-          Ліва
+          Left
         </button>
         <button
           className={`background-target-btn${targetSide === 'right' ? ' active' : ''}`}
           onClick={() => setTargetSide('right')}
         >
-          Права
+          Right
         </button>
         <button
           className={`background-target-btn${targetSide === 'both' ? ' active' : ''}`}
           onClick={() => setTargetSide('both')}
         >
-          Обидві
+          Both
         </button>
       </div>
 
-      <p className="panel-section-label" style={{ marginTop: '14px' }}>Колір</p>
+      <p className="panel-section-label" style={{ marginTop: '14px' }}>Color</p>
       <div className="background-color-row">
         <input
           className="background-color-input"
@@ -1249,12 +1249,12 @@ function PageBackgroundTab({
         />
       </div>
 
-      <p className="panel-section-label" style={{ marginTop: '14px' }}>Фото для фону</p>
+      <p className="panel-section-label" style={{ marginTop: '14px' }}>Background photos</p>
       <div className="photos-search-row">
         <input
           className="form-input"
           type="text"
-          placeholder="Пошук…"
+          placeholder="Search…"
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
@@ -1274,7 +1274,7 @@ function PageBackgroundTab({
           </button>
         ))}
         {assets.length === 0 && (
-          <div className="assets-empty">Немає фото</div>
+          <div className="assets-empty">No photos</div>
         )}
       </div>
 
@@ -1284,7 +1284,7 @@ function PageBackgroundTab({
         onClick={() => applyToSelectedSides(side => onClearPageBackgroundImage(side))}
         disabled={!spread}
       >
-        Очистити фонове фото
+        Clear background photo
       </button>
     </div>
   );
@@ -1300,7 +1300,7 @@ interface LayoutTabProps {
 function LayoutTab({ spread, onSetLayout }: LayoutTabProps) {
   return (
     <div className="layout-tab">
-      <p className="panel-section-label">Ліва сторінка</p>
+      <p className="panel-section-label">Left page</p>
       <div className="layout-grid">
         {LAYOUTS.map(layout => (
           <button
@@ -1315,7 +1315,7 @@ function LayoutTab({ spread, onSetLayout }: LayoutTabProps) {
         ))}
       </div>
 
-      <p className="panel-section-label" style={{ marginTop: '16px' }}>Права сторінка</p>
+      <p className="panel-section-label" style={{ marginTop: '16px' }}>Right page</p>
       <div className="layout-grid">
         {LAYOUTS.map(layout => (
           <button
