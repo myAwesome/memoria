@@ -3,14 +3,14 @@ import type { LayoutTemplate } from '../types/editor';
 export const LAYOUTS: LayoutTemplate[] = [
   {
     id: '1col',
-    label: '1 фото',
+    label: '1 photo',
     slotDefs: [
       { id: 's1', left: '0%', top: '0%', width: '100%', height: '100%' },
     ],
   },
   {
     id: '2col',
-    label: '2 колонки',
+    label: '2 columns',
     slotDefs: [
       { id: 's1', left: '0%',  top: '0%', width: '50%', height: '100%' },
       { id: 's2', left: '50%', top: '0%', width: '50%', height: '100%' },
@@ -27,7 +27,7 @@ export const LAYOUTS: LayoutTemplate[] = [
   },
   {
     id: 'mosaic',
-    label: 'Мозаїка',
+    label: 'Mosaic',
     slotDefs: [
       { id: 's1', left: '0%',  top: '0%',  width: '60%', height: '60%' },
       { id: 's2', left: '60%', top: '0%',  width: '40%', height: '40%' },

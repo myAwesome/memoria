@@ -38,24 +38,24 @@ export default function AssetPage() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm('Видалити фото?')) return;
+    if (!confirm('Delete photo?')) return;
     try { await deleteAsset(id); load(page); } catch (e) { console.error(e); }
   }
 
   async function handleBatchDelete() {
     if (selectedIds.size === 0) return;
-    if (!confirm(`Видалити ${selectedIds.size} фото?`)) return;
+    if (!confirm(`Delete ${selectedIds.size} photo(s)?`)) return;
     try { await batchDeleteAsset(Array.from(selectedIds)); load(page); } catch (e) { console.error(e); }
   }
 
   return (
     <div>
       <div className="page-header">
-        <h1>Асети</h1>
+        <h1>Assets</h1>
         <div className="header-actions">
           {selectedIds.size > 0 && (
             <button className="btn btn-danger" onClick={handleBatchDelete}>
-              Видалити {selectedIds.size}
+              Delete {selectedIds.size}
             </button>
           )}
         </div>
@@ -65,7 +65,7 @@ export default function AssetPage() {
         <input
           className="form-input"
           type="search"
-          placeholder="Пошук..."
+          placeholder="Search..."
           value={q}
           onChange={e => handleSearch(e.target.value)}
         />
@@ -74,7 +74,7 @@ export default function AssetPage() {
       {items.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">🖼️</div>
-          <p>Немає асетів.</p>
+          <p>No assets found.</p>
         </div>
       ) : (
         <div className="asset-page-grid">
@@ -89,7 +89,7 @@ export default function AssetPage() {
                 <button
                   className="asset-page-del"
                   onClick={e => { e.stopPropagation(); handleDelete(item.id); }}
-                  title="Видалити"
+                  title="Delete"
                 >×</button>
                 {selectedIds.has(item.id) && <div className="asset-page-check">✓</div>}
               </div>
@@ -103,9 +103,9 @@ export default function AssetPage() {
 
       {total > limit && (
         <div className="pagination">
-          <button className="btn" onClick={() => load(page - 1)} disabled={page <= 1}>← Назад</button>
+          <button className="btn" onClick={() => load(page - 1)} disabled={page <= 1}>← Previous</button>
           <span>{page} / {Math.ceil(total / limit)} ({total})</span>
-          <button className="btn" onClick={() => load(page + 1)} disabled={page * limit >= total}>Далі →</button>
+          <button className="btn" onClick={() => load(page + 1)} disabled={page * limit >= total}>Next →</button>
         </div>
       )}
     </div>
