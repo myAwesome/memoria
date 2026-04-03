@@ -55,7 +55,7 @@ echo "▸ Starting client dev server..."
 CLIENT_PID=$!
 
 # Open browser after short delay for dev server to start
-(sleep 5 && open "http://localhost:5173") &
+(sleep 5 && open "http://localhost:5173/project") &
 
 trap "kill $SERVER_PID $CLIENT_PID 2>/dev/null; exit" INT TERM
 wait $SERVER_PID $CLIENT_PID
