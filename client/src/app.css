@@ -212,6 +212,12 @@ body {
   text-transform: capitalize;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* === Buttons === */
 .btn {
   display: inline-flex;
@@ -1870,6 +1876,10 @@ body {
   gap: 12px;
 }
 
+.asset-page-toolbar {
+  margin-bottom: 10px;
+}
+
 .asset-page-item {
   cursor: pointer;
   border-radius: 8px;
@@ -1928,6 +1938,12 @@ body {
 
 .asset-page-del:hover {
   background: rgba(220, 38, 38, 0.85);
+}
+
+.asset-page-del:disabled {
+  opacity: 1;
+  cursor: default;
+  background: rgba(0, 0, 0, 0.7);
 }
 
 .asset-page-check {
