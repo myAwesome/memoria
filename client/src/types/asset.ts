@@ -1,6 +1,7 @@
 export interface Asset {
   id: number;
   path?: string;
+  thumbnail_path?: string;
   filename?: string;
   original_name?: string;
   size?: number;

@@ -133,7 +133,7 @@ export default function AssetPage() {
                 onClick={() => toggleSelect(item.id)}
               >
                 <div className="asset-page-thumb">
-                  <img src={item.path} alt={item.original_name ?? item.filename} loading="lazy" />
+                  <img src={item.thumbnail_path || item.path} alt={item.original_name ?? item.filename} loading="lazy" />
                   <button
                     className="asset-page-del"
                     onClick={e => { e.stopPropagation(); handleDelete(item.id); }}
