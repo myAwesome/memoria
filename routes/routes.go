@@ -2,6 +2,11 @@ package routes
 
 import (
 	"fmt"
+	"image"
+	_ "image/gif"
+	"image/jpeg"
+	_ "image/png"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,6 +18,68 @@ import (
 	"gorm.io/gorm"
 	"memoria/models"
 )
+
+const thumbnailMaxSize = 480
+
+func createThumbnail(srcPath string, uploadDir string) (string, error) {
+	f, err := os.Open(srcPath)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	src, _, err := image.Decode(f)
+	if err != nil {
+		return "", err
+	}
+
+	b := src.Bounds()
+	srcW := b.Dx()
+	srcH := b.Dy()
+	if srcW <= 0 || srcH <= 0 {
+		return "", fmt.Errorf("invalid image size")
+	}
+
+	scale := 1.0
+	if srcW > thumbnailMaxSize || srcH > thumbnailMaxSize {
+		scale = math.Min(float64(thumbnailMaxSize)/float64(srcW), float64(thumbnailMaxSize)/float64(srcH))
+	}
+	dstW := int(math.Round(float64(srcW) * scale))
+	dstH := int(math.Round(float64(srcH) * scale))
+	if dstW < 1 {
+		dstW = 1
+	}
+	if dstH < 1 {
+		dstH = 1
+	}
+
+	dst := image.NewRGBA(image.Rect(0, 0, dstW, dstH))
+	for y := 0; y < dstH; y++ {
+		srcY := b.Min.Y + (y*srcH)/dstH
+		for x := 0; x < dstW; x++ {
+			srcX := b.Min.X + (x*srcW)/dstW
+			dst.Set(x, y, src.At(srcX, srcY))
+		}
+	}
+
+	thumbDir := filepath.Join(uploadDir, "thumbs")
+	if err := os.MkdirAll(thumbDir, 0755); err != nil {
+		return "", err
+	}
+	thumbFilename := fmt.Sprintf("%d_thumb.jpg", time.Now().UnixNano())
+	thumbPath := filepath.Join(thumbDir, thumbFilename)
+	out, err := os.Create(thumbPath)
+	if err != nil {
+		return "", err
+	}
+	defer out.Close()
+
+	if err := jpeg.Encode(out, dst, &jpeg.Options{Quality: 82}); err != nil {
+		return "", err
+	}
+
+	return "/uploads/thumbs/" + thumbFilename, nil
+}
 
 // RegisterRoutes wires all CRUD routes onto r.
 func RegisterRoutes(r *gin.Engine, db *gorm.DB, uploadDir string) {
@@ -182,7 +249,7 @@ func listAsset(db *gorm.DB) gin.HandlerFunc {
 		offset := (page - 1) * limit
 		sortBy := c.DefaultQuery("sort_by", "id")
 		sortDir := c.DefaultQuery("sort_dir", "desc")
-		allowedAsset := map[string]bool{"id": true, "path": true, "filename": true, "original_name": true, "size": true, "mime_type": true, "created_at": true}
+		allowedAsset := map[string]bool{"id": true, "path": true, "thumbnail_path": true, "filename": true, "original_name": true, "size": true, "mime_type": true, "created_at": true}
 		if !allowedAsset[sortBy] {
 			sortBy = "id"
 		}
@@ -265,11 +332,17 @@ func uploadAsset(db *gorm.DB, uploadDir string) gin.HandlerFunc {
 		}
 
 		row := models.Asset{
-			Path:         "/uploads/" + filename,
-			Filename:     filename,
-			OriginalName: file.Filename,
-			Size:         file.Size,
-			MimeType:     mimeType,
+			Path:          "/uploads/" + filename,
+			ThumbnailPath: "",
+			Filename:      filename,
+			OriginalName:  file.Filename,
+			Size:          file.Size,
+			MimeType:      mimeType,
+		}
+		if strings.HasPrefix(strings.ToLower(mimeType), "image/") {
+			if thumbnailPath, thumbErr := createThumbnail(dst, uploadDir); thumbErr == nil {
+				row.ThumbnailPath = thumbnailPath
+			}
 		}
 
 		if err := db.Create(&row).Error; err != nil {

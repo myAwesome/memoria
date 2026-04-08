@@ -1159,7 +1159,7 @@ function PhotosTab({ selectedSlotId, onAssignToSelected }: PhotosTabProps) {
             }}
             title={asset.original_name ?? asset.path}
           >
-            <img src={asset.path} alt={asset.original_name} draggable={false} />
+            <img src={asset.thumbnail_path || asset.path} alt={asset.original_name} draggable={false} />
           </div>
         ))}
         {assets.length === 0 && !uploading && (
@@ -1270,7 +1270,7 @@ function PageBackgroundTab({
             }}
             title={asset.original_name ?? asset.path}
           >
-            <img src={asset.path} alt={asset.original_name} draggable={false} />
+            <img src={asset.thumbnail_path || asset.path} alt={asset.original_name} draggable={false} />
           </button>
         ))}
         {assets.length === 0 && (
